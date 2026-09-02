@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// roundup — live visual map of herdr workspaces, tabs, panes, and agent status.
+// herdrgraph — live visual map of herdr workspaces, tabs, panes, and agent status.
 // One dependency-free Node file: polls the herdr CLI, serves one static page,
 // pushes snapshots over SSE. Binds 127.0.0.1 only. Observes; never sends input.
 import http from 'node:http'
@@ -9,8 +9,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const PORT = Number(process.env.ROUNDUP_PORT || 4777)
-const POLL_MS = Number(process.env.ROUNDUP_POLL_MS || 1000)
+const PORT = Number(process.env.HERDRGRAPH_PORT || 4777)
+const POLL_MS = Number(process.env.HERDRGRAPH_POLL_MS || 1000)
 
 const herdr = (args) =>
   new Promise((resolve) => {
@@ -106,7 +106,7 @@ const server = http.createServer(async (req, res) => {
 })
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`roundup watching the herd → http://127.0.0.1:${PORT}`)
+  console.log(`herdrgraph watching the herd → http://127.0.0.1:${PORT}`)
 })
 setInterval(poll, POLL_MS)
 poll()

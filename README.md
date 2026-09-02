@@ -1,11 +1,11 @@
-# 🤠 roundup
+# 🤠 HerdRgraph
 
 **See the whole herd at a glance.**
 
-roundup is a live browser map of [herdr](https://herdr.dev) — every workspace, tab, and pane drawn as a flow graph with real agent status: who's **working**, **idle**, **blocked**, **done**, and who's next in line.
+HerdRgraph is a live browser map of [herdr](https://herdr.dev) — every workspace, tab, and pane drawn as a flow graph with real agent status: who's **working**, **idle**, **blocked**, **done**, and who's next in line.
 
 ```bash
-node bin/roundup.mjs
+node bin/herdrgraph.mjs
 # open http://127.0.0.1:4777
 ```
 
@@ -22,8 +22,8 @@ One dependency-free Node file. One static page. No database, no build, no accoun
 
 | Env | Default | What |
 |---|---|---|
-| `ROUNDUP_PORT` | `4777` | HTTP port |
-| `ROUNDUP_POLL_MS` | `1000` | herdr poll interval |
+| `HERDRGRAPH_PORT` | `4777` | HTTP port |
+| `HERDRGRAPH_POLL_MS` | `1000` | herdr poll interval |
 
 Inspired by [agenttrail](https://github.com/sodiumsun/agenttrail)'s architecture (one daemon, one page, localhost-only) — built fresh for herdr's data.
 

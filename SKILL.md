@@ -1,20 +1,20 @@
 ---
-name: roundup
-description: "Live browser map of your herdr herd — every workspace, tab, and pane drawn as a flow graph with agent status (working, idle, blocked, done). Use when running inside herdr (HERDR_ENV=1) and Bobby asks to see the map, the roundup, where work is, who's blocked, or what's next in line."
+name: herdrgraph
+description: "Live browser map of your herdr herd — every workspace, tab, and pane drawn as a flow graph with agent status (working, idle, blocked, done). Use when running inside herdr (HERDR_ENV=1) and Bobby asks to see the map, the graph, where work is, who's blocked, or what's next in line."
 ---
 
-# roundup — agent skill
+# herdrgraph — agent skill
 
-before using this skill, check that `HERDR_ENV=1`. if it is not, say roundup needs herdr running and stop.
+before using this skill, check that `HERDR_ENV=1`. if it is not, say herdrgraph needs herdr running and stop.
 
-roundup draws your whole herd in the browser: workspaces on the left, tabs under them, and each tab's panes as a numbered flow — who is working, who is idle, who is blocked, who is done, and who is next in line.
+HerdRgraph draws your whole herd in the browser: workspaces on the left, tabs under them, and each tab's panes as a numbered flow — who is working, who is idle, who is blocked, who is done, and who is next in line.
 
-the code lives at `/Users/tr3/Documents/repos/roundup` (GitHub: TR3-AI/roundup).
+the code lives at `/Users/tr3/Documents/repos/herdrgraph` (GitHub: TR3-AI/HerdRgraph).
 
 ## start the map
 
 ```bash
-node /Users/tr3/Documents/repos/roundup/bin/roundup.mjs
+node /Users/tr3/Documents/repos/herdrgraph/bin/herdrgraph.mjs
 ```
 
 then open http://127.0.0.1:4777 — or tell Bobby it's live there.
@@ -25,10 +25,10 @@ to run it in a herdr pane instead of the foreground:
 
 ```bash
 herdr pane split <your-pane-id> --direction down --no-focus
-herdr pane run <new-pane-id> "node /Users/tr3/Documents/repos/roundup/bin/roundup.mjs"
+herdr pane run <new-pane-id> "node /Users/tr3/Documents/repos/herdrgraph/bin/herdrgraph.mjs"
 ```
 
-`ROUNDUP_PORT` changes the port, `ROUNDUP_POLL_MS` the poll interval.
+`HERDRGRAPH_PORT` changes the port, `HERDRGRAPH_POLL_MS` the poll interval.
 
 ## what the map shows
 
@@ -40,4 +40,4 @@ herdr pane run <new-pane-id> "node /Users/tr3/Documents/repos/roundup/bin/roundu
 
 - pane order within a tab is the pipeline order. v1 has no other source of "who is next" — do not invent one; if Bobby names a different order, that becomes a config, not a guess.
 - statuses come straight from herdr's `agent_status`. never re-derive them from terminal text.
-- the map is read-only except for tab focus on click. never send text or keys to panes from roundup.
+- the map is read-only except for tab focus on click. never send text or keys to panes from herdrgraph.
