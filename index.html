@@ -95,34 +95,52 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .node .pin {
     width: 13px; height: 13px; border-radius: 50%; margin: 0 auto 14px;
     background: var(--bg); border: 2px solid var(--unknown); position: relative; z-index: 2;
+    transition: box-shadow .3s;
   }
-  .node.working .pin { border-color: var(--working); background: var(--working); box-shadow: 0 0 10px var(--working); }
+  .node.working .pin { width: 15px; height: 15px; border-color: var(--working); background: var(--working); box-shadow: 0 0 14px var(--working), 0 0 40px rgba(63,185,80,.5); }
   .node.idle .pin { border-color: var(--idle); }
-  .node.blocked .pin { border-color: var(--blocked); background: var(--blocked); box-shadow: 0 0 10px var(--blocked); }
+  .node.blocked .pin { border-color: var(--blocked); background: var(--blocked); box-shadow: 0 0 14px var(--blocked), 0 0 34px rgba(248,81,73,.45); animation: alarm 1s steps(2, jump-none) infinite; }
   .node.done .pin { border-color: var(--done); }
+  @keyframes alarm { 50% { box-shadow: 0 0 0 var(--blocked); opacity: .45; } }
   .node.working .pin::before, .node.working .pin::after {
     content: ""; position: absolute; inset: -3px; border-radius: 50%;
-    border: 1px solid var(--working); animation: radar 2s ease-out infinite;
+    border: 1.5px solid var(--working); animation: radar 1.6s ease-out infinite;
   }
-  .node.working .pin::after { animation-delay: 1s; }
-  @keyframes radar { from { transform: scale(1); opacity: .8; } to { transform: scale(3.2); opacity: 0; } }
+  .node.working .pin::after { animation-delay: .8s; }
+  @keyframes radar { from { transform: scale(1); opacity: .9; } to { transform: scale(3.6); opacity: 0; } }
 
   .card {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    background: linear-gradient(160deg, #0e1219, #090c11);
+    border: 1px solid var(--line); border-radius: 10px;
     padding: 12px 14px; cursor: pointer; position: relative;
     transition: border-color .25s, box-shadow .25s, transform .25s;
   }
-  .card:hover { border-color: var(--line2); transform: translateY(-2px); }
+  .card:hover { border-color: #33405a; transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.5); }
   .card:focus-visible { outline: 1px solid var(--done); outline-offset: 2px; }
-  .node.working .card { border-color: rgba(63,185,80,.45); box-shadow: 0 0 22px rgba(63,185,80,.12); }
-  .node.blocked .card { border-color: rgba(248,81,73,.45); box-shadow: 0 0 22px rgba(248,81,73,.10); }
+  .node.working .card {
+    border-color: rgba(63,185,80,.65);
+    box-shadow: 0 0 30px rgba(63,185,80,.18), inset 0 0 24px rgba(63,185,80,.05);
+    animation: heartbeat 2.4s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { box-shadow: 0 0 30px rgba(63,185,80,.18), inset 0 0 24px rgba(63,185,80,.05); }
+    50% { box-shadow: 0 0 44px rgba(63,185,80,.34), inset 0 0 24px rgba(63,185,80,.09); }
+  }
+  .node.blocked .card {
+    border-color: rgba(248,81,73,.7);
+    animation: redalert 1.1s ease-in-out infinite;
+  }
+  @keyframes redalert {
+    0%, 100% { box-shadow: 0 0 26px rgba(248,81,73,.2), inset 0 0 20px rgba(248,81,73,.05); }
+    50% { box-shadow: 0 0 48px rgba(248,81,73,.5), inset 0 0 28px rgba(248,81,73,.14); border-color: var(--blocked); }
+  }
   .card .step { position: absolute; top: -9px; left: 12px; padding: 0 6px; background: var(--bg); font-size: 10px; color: var(--dim); letter-spacing: .1em; }
   .card .pname { font-weight: 700; font-size: 13px; margin-bottom: 4px; overflow-wrap: anywhere; }
   .card .meta { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .badge { display: inline-block; margin-top: 9px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 9px; border-radius: 4px; border: 1px solid; }
-  .badge.working { color: var(--working); border-color: rgba(63,185,80,.5); animation: blink 1.2s steps(2, jump-none) infinite; }
+  .badge.working { color: #7ee787; border-color: rgba(63,185,80,.7); text-shadow: 0 0 10px rgba(63,185,80,.8); animation: blink 1.2s steps(2, jump-none) infinite; }
   .badge.idle { color: var(--idle); border-color: rgba(210,153,34,.5); }
-  .badge.blocked { color: var(--blocked); border-color: rgba(248,81,73,.5); }
+  .badge.blocked { color: #ff7b72; border-color: rgba(248,81,73,.7); text-shadow: 0 0 10px rgba(248,81,73,.8); animation: blink .8s steps(2, jump-none) infinite; }
   .badge.done { color: var(--done); border-color: rgba(88,166,255,.5); }
   .badge.unknown { color: var(--unknown); border-color: var(--line2); }
 
@@ -138,12 +156,34 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
 
   /* edge styling (SVG) */
   .edge { fill: none; stroke: var(--line2); stroke-width: 1.5; }
-  .edge.working { stroke: rgba(63,185,80,.55); }
-  .edge.idle { stroke: rgba(210,153,34,.35); }
-  .edge.blocked { stroke: rgba(248,81,73,.6); stroke-dasharray: 5 5; animation: march 1s linear infinite; }
-  .edge.done { stroke: rgba(88,166,255,.25); }
-  @keyframes march { to { stroke-dashoffset: -10; } }
+  .edge.working { stroke: rgba(63,185,80,.85); stroke-width: 2.5; filter: drop-shadow(0 0 5px rgba(63,185,80,.7)); }
+  .edge.idle { stroke: rgba(210,153,34,.45); }
+  .edge.blocked { stroke: rgba(248,81,73,.8); stroke-width: 2; stroke-dasharray: 6 5; animation: march .7s linear infinite; filter: drop-shadow(0 0 4px rgba(248,81,73,.6)); }
+  .edge.done { stroke: rgba(88,166,255,.3); }
+  @keyframes march { to { stroke-dashoffset: -11; } }
   .edge.hot { stroke-width: 2.5; }
+
+  /* ── inspector (click a node) ─────────────────── */
+  #detail {
+    position: fixed; top: 52px; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 40;
+    background: var(--panel); border-left: 1px solid var(--line2);
+    transform: translateX(102%); transition: transform .3s cubic-bezier(.2,.9,.25,1);
+    display: flex; flex-direction: column; box-shadow: -20px 0 60px rgba(0,0,0,.55);
+  }
+  #detail.open { transform: translateX(0); }
+  #detail .dhead { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  #detail .dhead .step { font-size: 10px; letter-spacing: .14em; color: var(--dim); }
+  #detail .dhead .x { margin-left: auto; background: none; border: 1px solid var(--line2); border-radius: 6px; color: var(--ink); width: 28px; height: 28px; cursor: pointer; font-size: 13px; }
+  #detail .dhead .x:hover { border-color: var(--red); color: var(--red); }
+  #detail h3 { padding: 12px 16px 2px; font-size: 15px; overflow-wrap: anywhere; }
+  #detail .dmeta { padding: 6px 16px 12px; color: var(--dim); font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+  #detail .dmeta b { color: var(--ink); font-weight: 600; }
+  #detail .tailhead { padding: 8px 16px; font-size: 10px; letter-spacing: .16em; color: var(--red); text-transform: uppercase; border-top: 1px solid var(--line); }
+  #tail {
+    flex: 1; overflow: auto; margin: 0; padding: 12px 16px 20px;
+    background: #05070a; color: #a9b7c9; font: 11px/1.65 var(--mono);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
 
   /* ── mobile: drawer + vertical spine ──────────── */
   #scrim { display: none; }
@@ -161,6 +201,10 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
     #flow { flex-direction: column; gap: 56px; }
     .node { width: 100%; }
     .node .pin { position: absolute; left: -30px; top: 18px; margin: 0; }
+    #detail { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 62vh;
+      border-left: none; border-top: 1px solid var(--line2);
+      transform: translateY(103%); box-shadow: 0 -20px 60px rgba(0,0,0,.55); }
+    #detail.open { transform: translateY(0); }
   }
 </style>
 </head>
@@ -179,6 +223,17 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
     <div id="stage"><div id="empty">select a tab on the board</div></div>
   </div></main>
 </div>
+<div id="detail" role="dialog" aria-label="Pane inspector">
+  <div class="dhead">
+    <span class="step" id="dstep"></span>
+    <span class="badge" id="dbadge"></span>
+    <button class="x" id="dclose" aria-label="Close inspector">✕</button>
+  </div>
+  <h3 id="dname"></h3>
+  <div class="dmeta" id="dmeta"></div>
+  <div class="tailhead">Live tail · refreshes 2s</div>
+  <pre id="tail">…</pre>
+</div>
 
 <script>
 let state = null;
@@ -196,6 +251,36 @@ const setDrawer = (open) => { board.classList.toggle('open', open); scrim.classL
 document.getElementById('hamburger').addEventListener('click', () => setDrawer(true));
 scrim.addEventListener('click', () => setDrawer(false));
 addEventListener('keydown', (e) => { if (e.key === 'Escape') setDrawer(false); });
+
+/* ── inspector ── */
+const detail = document.getElementById('detail');
+let detailTimer = null;
+async function refreshTail(id) {
+  try {
+    const text = await fetch(API + '/api/pane?id=' + encodeURIComponent(id)).then((r) => r.text());
+    const tail = document.getElementById('tail');
+    tail.textContent = text.trimEnd() || '(pane is quiet)';
+    tail.scrollTop = tail.scrollHeight;
+  } catch { /* keep last tail */ }
+}
+function openDetail(p, tabId, step) {
+  document.getElementById('dstep').textContent = `STEP ${String(step).padStart(2, '0')} · ${p.id}`;
+  const badge = document.getElementById('dbadge');
+  badge.textContent = p.status;
+  badge.className = 'badge ' + p.status;
+  document.getElementById('dname').textContent = p.label;
+  document.getElementById('dmeta').innerHTML =
+    `agent <b>${esc(p.agent || '—')}</b><br>cwd <b>${esc(p.cwd || '—')}</b>`;
+  detail.classList.add('open');
+  clearInterval(detailTimer);
+  refreshTail(p.id);
+  detailTimer = setInterval(() => refreshTail(p.id), 2000);
+  // clicking a card also focuses the tab in herdr, so the app mirrors the map
+  fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: tabId }) }).catch(() => {});
+}
+function closeDetail() { detail.classList.remove('open'); clearInterval(detailTimer); }
+document.getElementById('dclose').addEventListener('click', closeDetail);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
 
 /* ── render ── */
 function render() {
@@ -257,7 +342,10 @@ function render() {
       }).join('')}
     </div>`;
   stage.querySelectorAll('.card').forEach((el) => {
-    const go = () => fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: el.dataset.tab }) }).catch(() => {});
+    const node = el.closest('.node');
+    const pane = tab.panes.find((p) => p.id === node.dataset.pane);
+    const step = tab.panes.indexOf(pane) + 1;
+    const go = () => openDetail(pane, el.dataset.tab, step);
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });

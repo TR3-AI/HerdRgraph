@@ -20,6 +20,14 @@ const herdr = (args) =>
     })
   })
 
+// pane read prints text, not json
+const herdrText = (args) =>
+  new Promise((resolve) => {
+    execFile('herdr', args, { maxBuffer: 32 * 1024 * 1024, timeout: 8000 }, (err, stdout) => {
+      resolve(err ? null : stdout)
+    })
+  })
+
 let snapshot = { ok: false, ts: Date.now(), workspaces: [] }
 
 async function poll() {
@@ -93,6 +101,15 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/state') {
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify(snapshot))
+    return
+  }
+  if (url.pathname === '/api/pane') {
+    const id = url.searchParams.get('id') || ''
+    if (!/^[\w:.-]+$/.test(id)) { res.writeHead(400).end(); return }
+    const text = await herdrText(['pane', 'read', id, '--source', 'recent-unwrapped', '--lines', '60'])
+    if (text === null) { res.writeHead(502).end(); return }
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
+    res.end(text)
     return
   }
   if (url.pathname === '/api/focus' && req.method === 'POST') {
