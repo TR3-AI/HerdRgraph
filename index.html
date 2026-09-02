@@ -68,6 +68,44 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .tab.sel { background: #10141b; border-left-color: var(--red); }
   .tab .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab .n { color: var(--dim); font-size: 11px; }
+  /* tabs carrying a blocker flash red; a question gets an amber pill */
+  .tab.has-blocked { animation: tabalert 1.1s ease-in-out infinite; }
+  @keyframes tabalert { 0%, 100% { background: rgba(248,81,73,.04); } 50% { background: rgba(248,81,73,.18); } }
+  .tab.has-blocked .name { color: #ff9d97; }
+  .pill { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px; font-size: 10px; font-weight: 700; display: inline-grid; place-items: center; flex-shrink: 0; }
+  .pill.red { background: var(--blocked); color: #fff; box-shadow: 0 0 10px rgba(248,81,73,.8); animation: blink 1s steps(2, jump-none) infinite; }
+  .pill.amber { background: var(--idle); color: #14100a; box-shadow: 0 0 8px rgba(210,153,34,.6); }
+  /* overview button pinned above the workspaces */
+  #ovbtn {
+    display: flex; align-items: center; gap: 9px; width: calc(100% - 24px); margin: 0 12px 12px;
+    padding: 9px 12px; background: #10141b; border: 1px solid var(--line2); border-radius: 8px;
+    color: var(--ink); font: inherit; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+  }
+  #ovbtn:hover { border-color: #33405a; }
+  #ovbtn.sel { border-color: var(--red); color: var(--red); }
+
+  /* ── overview: the whole herd on one screen ───── */
+  #ovhead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+  #ovhead h2 { font-size: 17px; font-weight: 700; }
+  #ovhead h2::before { content: "◉ "; color: var(--red); }
+  .ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .ovcard {
+    background: linear-gradient(160deg, #0e1219, #090c11); border: 1px solid var(--line);
+    border-radius: 10px; padding: 13px 15px; cursor: pointer;
+    transition: border-color .25s, transform .25s, box-shadow .25s;
+  }
+  .ovcard:hover { border-color: #33405a; transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+  .ovcard.alert { border-color: rgba(248,81,73,.6); animation: redalert 1.1s ease-in-out infinite; }
+  .ovcard .t { color: var(--dim); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 3px; }
+  .ovcard .who { font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+  .ovcard .chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .ovcard .dots { display: flex; gap: 6px; align-items: center; }
+  .pdot { width: 9px; height: 9px; border-radius: 50%; background: var(--unknown); position: relative; }
+  .pdot.working { background: var(--working); box-shadow: 0 0 8px var(--working); animation: blink 1.2s steps(2, jump-none) infinite; }
+  .pdot.idle { background: var(--idle); }
+  .pdot.blocked { background: var(--blocked); box-shadow: 0 0 8px var(--blocked); animation: blink .8s steps(2, jump-none) infinite; }
+  .pdot.done { background: var(--done); }
+  .pdot.q::after { content: ""; position: absolute; inset: -3px; border-radius: 50%; border: 1.5px solid var(--idle); }
   .tick { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--unknown); }
   .tick.working { background: var(--working); box-shadow: 0 0 8px var(--working); animation: blink 1.2s steps(2, jump-none) infinite; }
   .tick.idle { background: var(--idle); }
@@ -183,13 +221,6 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .ucard .who { font-weight: 700; }
   .ucard .t { color: var(--dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
   .ucard .q { color: var(--dim); font-size: 11px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
-
-  /* ── board alarm: visible the moment the menu opens ── */
-  #boardalarm { margin: 0 12px 12px; border: 1px solid rgba(248,81,73,.7); border-radius: 8px; padding: 10px 12px; font-size: 11.5px; animation: redalert 1.1s ease-in-out infinite; }
-  #boardalarm .h { color: #ff7b72; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: 10px; margin-bottom: 4px; }
-  #boardalarm .t { color: var(--dim); line-height: 1.6; }
-  #boardalarm.amber { border-color: rgba(210,153,34,.55); animation: none; }
-  #boardalarm.amber .h { color: var(--idle); }
 
   /* edge styling (SVG) */
   .edge { fill: none; stroke: var(--line2); stroke-width: 1.5; }
@@ -346,21 +377,28 @@ function render() {
     if (p.status === 'blocked') urgent.blocked.push({ p, t });
     else if (p.question) urgent.questions.push({ p, t });
   }
-  const names = (list) => [...new Set(list.map((x) => x.t.label))].map(esc).join(' · ');
-  const alarm = urgent.blocked.length
-    ? `<div id="boardalarm"><div class="h">⚠ ${urgent.blocked.length} blocked</div><div class="t">${names(urgent.blocked)}</div></div>`
-    : urgent.questions.length
-      ? `<div id="boardalarm" class="amber"><div class="h">? ${urgent.questions.length} waiting on you</div><div class="t">${names(urgent.questions)}</div></div>`
-      : '';
-
-  board.innerHTML = '<div class="board-head">The Board</div>' + alarm + ws.map((w) => `
+  board.innerHTML = '<div class="board-head">The Board</div>' +
+    `<button id="ovbtn" class="${selected ? '' : 'sel'}">◉ The Herd — overview</button>` +
+    ws.map((w) => `
     <div class="ws-name">${esc(w.label)}</div>
-    ${w.tabs.map((t) => `
-      <button class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
+    ${w.tabs.map((t) => {
+      const tb = t.panes.filter((p) => p.status === 'blocked').length;
+      const tq = t.panes.filter((p) => p.question).length;
+      return `
+      <button class="tab ${t.id === selected ? 'sel' : ''} ${tb ? 'has-blocked' : ''}" data-tab="${t.id}">
         <span class="tick ${t.status}"></span>
         <span class="name">${esc(t.label)}</span>
+        ${tb ? `<span class="pill red" title="${tb} blocked">${tb}</span>` : ''}
+        ${tq ? `<span class="pill amber" title="${tq} question${tq > 1 ? 's' : ''}">${tq}</span>` : ''}
         <span class="n">${t.panes.length}</span>
-      </button>`).join('')}`).join('');
+      </button>`;
+    }).join('')}`).join('');
+  document.getElementById('ovbtn').addEventListener('click', () => {
+    selected = null;
+    localStorage.setItem('herdrgraph.tab', '');
+    setDrawer(false);
+    render();
+  });
   board.querySelectorAll('.tab').forEach((el) => el.addEventListener('click', () => {
     selected = el.dataset.tab;
     localStorage.setItem('herdrgraph.tab', selected);
@@ -374,6 +412,7 @@ function render() {
 
   const stage = document.getElementById('stage');
   const tab = all.find((t) => t.id === selected);
+  const order = ['working', 'blocked', 'idle', 'done', 'unknown'];
 
   // pinned at the very top: 1 blockers, 2 questions. more than one item →
   // collapsed behind a count badge; tap the header to expand. state persists
@@ -426,9 +465,53 @@ function render() {
     });
   };
 
-  if (!tab) { stage.innerHTML = urgentHtml + '<div id="empty">select a tab on the board</div>'; wireUrgent(); drawEdges(); return; }
+  if (!tab) {
+    // overview: the whole herd, sorted by who needs you most
+    const cards = [];
+    for (const w of ws) for (const t of w.tabs) {
+      const c = { working: 0, blocked: 0, idle: 0, done: 0, unknown: 0 };
+      let q = 0;
+      for (const p of t.panes) { c[p.status] = (c[p.status] || 0) + 1; if (p.question) q++; }
+      cards.push({ w, t, c, q });
+    }
+    cards.sort((a, b) => (b.c.blocked - a.c.blocked) || (b.q - a.q) || (b.c.working - a.c.working));
+    stage.innerHTML = urgentHtml + `
+      <div id="ovhead">
+        <h2>The Herd</h2>
+        ${order.filter((s) => counts[s]).map((s) =>
+          `<span class="chip"><i style="background:var(--${s})"></i>${counts[s]} ${s}</span>`).join('')}
+      </div>
+      <div class="ov-grid">
+        ${cards.map(({ w, t, c, q }) => `
+          <div class="ovcard ${c.blocked ? 'alert' : ''}" role="button" tabindex="0" data-tab="${t.id}">
+            <div class="t">${esc(w.label)}</div>
+            <div class="who">${esc(t.label)}
+              ${c.blocked ? `<span class="pill red">${c.blocked}</span>` : ''}
+              ${q ? `<span class="pill amber">${q}</span>` : ''}
+            </div>
+            <div class="chips">
+              ${order.filter((s) => c[s]).map((s) =>
+                `<span class="chip"><i style="background:var(--${s})"></i>${c[s]}</span>`).join('')}
+            </div>
+            <div class="dots">${t.panes.map((p) =>
+              `<span class="pdot ${p.status}${p.question ? ' q' : ''}" title="${esc(p.label)} — ${p.status}"></span>`).join('')}</div>
+          </div>`).join('')}
+      </div>`;
+    stage.querySelectorAll('.ovcard').forEach((el) => {
+      const go = () => {
+        selected = el.dataset.tab;
+        localStorage.setItem('herdrgraph.tab', selected);
+        setDrawer(false);
+        render();
+      };
+      el.addEventListener('click', go);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+    wireUrgent();
+    drawEdges();
+    return;
+  }
 
-  const order = ['working', 'blocked', 'idle', 'done', 'unknown'];
   const tc = {};
   for (const p of tab.panes) tc[p.status] = (tc[p.status] || 0) + 1;
   stage.innerHTML = urgentHtml + `
