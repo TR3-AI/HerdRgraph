@@ -476,29 +476,26 @@ function render() {
       </div>
       <div class="ov-grid">
         ${cards.map(({ w, t, c, q }) => {
-          const working = t.panes.filter((p) => p.status === 'working');
           const blocked = t.panes.filter((p) => p.status === 'blocked');
           const qs = t.panes.filter((p) => p.question);
-          const doneN = t.panes.filter((p) => p.status === 'done').length;
           return `
           <div class="ovcard ${c.blocked ? 'alert' : ''}" role="button" tabindex="0" data-tab="${t.id}">
             <div class="t">${esc(w.label)}</div>
             <div class="who">${esc(t.label)}</div>
             <div class="lines">
-              ${working.slice(0, 2).map((p) =>
-                `<div class="line g">▶ ${esc(p.label)} · ${ago(p.statusSince)}</div>`).join('')}
-              ${blocked.slice(0, 2).map((p) =>
+              ${blocked.slice(0, 1).map((p) =>
                 `<div class="line r">⚠ ${esc(p.label)} · blocked ${ago(p.statusSince)}</div>`).join('')}
               ${qs.slice(0, 1).map((p) =>
-                `<div class="line a">? ${esc(p.label)} — “${esc(p.question.slice(0, 56))}${p.question.length > 56 ? '…' : ''}”</div>`).join('')}
+                `<div class="line a">? “${esc(p.question.slice(0, 60))}${p.question.length > 60 ? '…' : ''}”</div>`).join('')}
             </div>
+            ${(c.blocked || q) ? `
             <div class="foot">
-              <span class="dim">${doneN}/${t.panes.length} done</span>
+              <span></span>
               <div class="pills">
                 ${c.blocked ? `<span class="pill red" title="${c.blocked} blocked">${c.blocked}</span>` : ''}
                 ${q ? `<span class="pill amber" title="${q} question${q > 1 ? 's' : ''}">${q}</span>` : ''}
               </div>
-            </div>
+            </div>` : ''}
           </div>`;
         }).join('')}
       </div>`;
