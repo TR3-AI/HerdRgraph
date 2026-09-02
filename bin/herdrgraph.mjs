@@ -58,13 +58,20 @@ async function poll() {
   }
   for (const p of panes.panes) {
     const prev = prevPanes.get(p.pane_id)
-    tabById.get(p.tab_id)?.panes.push({
+    const status = p.agent_status || 'unknown'
+    const pane = {
       id: p.pane_id, label: p.label || p.terminal_title_stripped || p.pane_id,
-      agent: p.agent || null, status: p.agent_status || 'unknown',
+      agent: p.agent || null, status,
       cwd: p.foreground_cwd || p.cwd || '', focused: p.focused,
       // question flags survive across polls; the scanner below refreshes them
       question: prev?.question || null,
-    })
+      // how long in this state — restarts reset the clock, nothing deeper
+      statusSince: prev && prev.status === status ? prev.statusSince : Date.now(),
+    }
+    tabById.get(p.tab_id)?.panes.push(pane)
+    if (prev && prev.status !== 'blocked' && status === 'blocked') {
+      notify(`Blocked: ${pane.label}`, `${tabById.get(p.tab_id)?.label || ''} has a blocker`, '5', 'rotating_light')
+    }
   }
   // panes arrive in creation order within each tab — that order IS the pipeline
   // flow. ponytail: v1 infers "next in line" from pane order; a config mapping
@@ -83,6 +90,18 @@ let prevPanes = new Map()
 let lastQScan = 0
 const Q_RE = /(?:\?\s*$|do you want to proceed|approve|\[y\/n\]|\(yes\/no\)|waiting for|esc to cancel|allow once)/i
 
+// push via ntfy — Bobby already runs it. one POST per transition, no deps.
+const NTFY_TOPIC = process.env.NTFY_TOPIC || ''
+const notifiedQ = new Set() // pane id + question text already pushed
+function notify(title, body, priority, tags) {
+  if (!NTFY_TOPIC) return
+  fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+    method: 'POST',
+    headers: { Title: title, Priority: priority, Tags: tags },
+    body,
+  }).catch(() => { /* a missed buzz never breaks the board */ })
+}
+
 async function maybeScanQuestions() {
   if (Date.now() - lastQScan < 10000) return
   lastQScan = Date.now()
@@ -96,7 +115,15 @@ async function maybeScanQuestions() {
     const line = (text || '').split('\n').map((l) => l.trim()).filter(Boolean).reverse()
       .find((l) => Q_RE.test(l))
     const q = line ? line.slice(0, 140) : null
-    if (q !== p.question) { p.question = q; changed = true }
+    if (q !== p.question) {
+      p.question = q; changed = true
+      const key = p.id + '|' + q
+      if (q && !notifiedQ.has(key)) {
+        notifiedQ.add(key)
+        notify(`Question: ${p.label}`, q, '4', 'question')
+      }
+      if (!q) for (const k of notifiedQ) if (k.startsWith(p.id + '|')) notifiedQ.delete(k)
+    }
   }
   if (changed) { lastSent = ''; broadcast() }
 }

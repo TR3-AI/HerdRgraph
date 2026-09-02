@@ -270,6 +270,14 @@ const LOCAL = /^(127\.0\.0\.1|localhost)/.test(location.hostname);
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const base = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+const ago = (ts) => {
+  if (!ts) return '';
+  const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  return h < 24 ? h + 'h ' + (m % 60) + 'm' : Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+};
 
 /* ── drawer ── */
 const board = document.getElementById('board'), scrim = document.getElementById('scrim');
@@ -296,7 +304,7 @@ function openDetail(p, tabId, step) {
   badge.className = 'badge ' + p.status;
   document.getElementById('dname').textContent = p.label;
   document.getElementById('dmeta').innerHTML =
-    `agent <b>${esc(p.agent || '—')}</b><br>cwd <b>${esc(p.cwd || '—')}</b>`;
+    `agent <b>${esc(p.agent || '—')}</b><br>cwd <b>${esc(p.cwd || '—')}</b><br>${p.status} for <b>${ago(p.statusSince)}</b>`;
   detail.classList.add('open');
   clearInterval(detailTimer);
   refreshTail(p.id);
@@ -363,6 +371,7 @@ function render() {
           ${urgent.blocked.map(({ p, t }) => `
             <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
               <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+              <div class="q">blocked for ${ago(p.statusSince)}</div>
             </div>`).join('')}
         </div></div>` : ''}
       ${urgent.questions.length ? `
@@ -371,6 +380,7 @@ function render() {
             <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
               <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
               <div class="q">${esc(p.question)}</div>
+              <div class="q">waiting for ${ago(p.statusSince)}</div>
             </div>`).join('')}
         </div></div>` : ''}
     </div>` : '';
