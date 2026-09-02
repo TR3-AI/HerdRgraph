@@ -81,6 +81,10 @@
 <script>
 let state = null;
 let selected = localStorage.getItem('herdrgraph.tab') || null;
+// same-origin when the daemon serves the page; on GitHub Pages the live
+// endpoint comes from config.json ({ "api": "https://…trycloudflare.com" }).
+let API = '';
+const LOCAL = /^(127\.0\.0\.1|localhost)/.test(location.hostname);
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const base = (p) => (p || '').split('/').filter(Boolean).pop() || '';
@@ -106,7 +110,7 @@ function render() {
   side.querySelectorAll('.tab').forEach((el) => el.addEventListener('click', () => {
     selected = el.dataset.tab;
     localStorage.setItem('herdrgraph.tab', selected);
-    fetch('/api/focus', { method: 'POST', body: JSON.stringify({ tab: selected }) }).catch(() => {});
+    fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: selected }) }).catch(() => {});
     render();
   }));
 
@@ -134,13 +138,26 @@ function render() {
         </div></div>`).join('')}
     </div>`;
   main.querySelectorAll('.card').forEach((el) => el.addEventListener('click', () => {
-    fetch('/api/focus', { method: 'POST', body: JSON.stringify({ tab: el.dataset.tab }) }).catch(() => {});
+    fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: el.dataset.tab }) }).catch(() => {});
   }));
 }
 
-const es = new EventSource('/events');
-es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
-es.onerror = () => { document.getElementById('sub').textContent = 'connection lost — retrying…'; };
+async function connect() {
+  if (!LOCAL) {
+    try {
+      const cfg = await fetch('config.json?' + Date.now()).then((r) => r.json());
+      API = cfg.api || '';
+    } catch { API = ''; }
+    if (!API) {
+      document.getElementById('sub').textContent = 'daemon offline — start herdrgraph on the Mac';
+      return;
+    }
+  }
+  const es = new EventSource(API + '/events');
+  es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
+  es.onerror = () => { document.getElementById('sub').textContent = 'connection lost — retrying…'; };
+}
+connect();
 render();
 </script>
 </body>

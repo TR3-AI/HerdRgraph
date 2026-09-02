@@ -71,7 +71,17 @@ function broadcast() {
   for (const res of clients) res.write(`data: ${data}\n\n`)
 }
 
+// the UI is also hosted on GitHub Pages; the Pages copy talks to this daemon
+// cross-origin, so allow exactly that origin (and local) — not the whole web.
+const ALLOWED = /^https:\/\/tr3-ai\.github\.io$|^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/
+const cors = (req, res) => {
+  const origin = req.headers.origin || ''
+  if (ALLOWED.test(origin)) res.setHeader('access-control-allow-origin', origin)
+}
+
 const server = http.createServer(async (req, res) => {
+  cors(req, res)
+  if (req.method === 'OPTIONS') { res.writeHead(204).end(); return }
   const url = new URL(req.url, 'http://localhost')
   if (url.pathname === '/events') {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
@@ -99,7 +109,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (url.pathname === '/') {
     res.writeHead(200, { 'content-type': 'text/html' })
-    res.end(readFileSync(path.join(__dirname, '..', 'public', 'index.html')))
+    res.end(readFileSync(path.join(__dirname, '..', 'index.html')))
     return
   }
   res.writeHead(404).end()
