@@ -468,7 +468,7 @@ function render() {
       cards.push({ w, t, c, q });
     }
     cards.sort((a, b) => (b.c.blocked - a.c.blocked) || (b.q - a.q) || (b.c.working - a.c.working));
-    stage.innerHTML = urgentHtml + `
+    stage.innerHTML = `
       <div id="ovhead">
         <h2>The Herd</h2>
         ${order.filter((s) => counts[s]).map((s) =>
