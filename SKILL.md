@@ -19,6 +19,8 @@ node /Users/tr3/Documents/repos/herdrgraph/bin/herdrgraph.mjs
 
 then open http://127.0.0.1:4777 — or tell Bobby it's live there.
 
+the map is also on GitHub Pages: https://tr3-ai.github.io/HerdRgraph/ — that's the phone bookmark. the Pages copy reads `config.json` in the repo root for the live tunnel URL (`{"api":"https://…trycloudflare.com"}`) and pulls data from the Mac daemon over that tunnel. if the tunnel restarts with a new URL, update `config.json`, commit, push — Pages redeploys in about a minute. when the daemon is down, the page says so instead of failing silently.
+
 it binds localhost only, polls `herdr` once a second, and pushes updates to the page live. it observes; it never sends input to any pane. clicking a tab in the sidebar focuses that tab in herdr — that is the only action it takes, and it is Bobby's own click.
 
 to run it in a herdr pane instead of the foreground:

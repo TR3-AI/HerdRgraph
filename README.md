@@ -9,6 +9,8 @@ node bin/herdrgraph.mjs
 # open http://127.0.0.1:4777
 ```
 
+**On your phone:** https://tr3-ai.github.io/HerdRgraph/ — the GitHub Pages copy reads `config.json` for the live tunnel URL and streams data from the Mac daemon. Tunnel restarted with a new URL? Update `config.json`, commit, push — Pages redeploys in about a minute.
+
 One dependency-free Node file. One static page. No database, no build, no account, no telemetry. It binds `127.0.0.1` only, polls the `herdr` CLI once a second, and pushes snapshots to the page over SSE. It observes — it never sends input to a pane (clicking a tab focuses it in herdr; that's all).
 
 ## What you see
