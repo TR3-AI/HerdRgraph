@@ -1,0 +1,522 @@
+<!doctype html>
+<!--
+THESIS: an operations blueprint board — your herd drawn as a wired signal graph, not a card list. Refuses the dashboard-default grid of same-size boxes.
+OWN-WORLD: near-black blueprint paper #07090c, hairline #1a2029 panels, all-mono type, limen-red #f85149 section labels, status carried by traveling dots on live edges.
+STORY: open it, and in three seconds you know who is working (green radar + fast dot), who is idle, who is blocked, who is done, and who is next in line on the spine.
+FIRST VIEWPORT: header strip with LIVE counter; board panel left (desktop) or behind the drawer (phone); canvas with the selected tab's panes wired left→right on a spine.
+FORM: replacement world — operations blueprint (pinned by Bobby from limen + agenttrail hero references).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HerdRgraph — SAMPLE LAYOUT (fake data)</title>
+<style>
+  :root {
+    --bg: #07090c; --panel: #0c0f14; --line: #1a2029; --line2: #232b38;
+    --ink: #d6dde8; --dim: #6b7688; --red: #f85149;
+    --working: #3fb950; --idle: #d29922; --blocked: #f85149; --done: #58a6ff; --unknown: #6b7688;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.5 var(--mono);
+    display: flex; flex-direction: column; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── header strip ─────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; height: 52px; flex-shrink: 0;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .brand { font-size: 14px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .brand b { color: var(--red); font-weight: 700; }
+  .live { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .live .pip { width: 7px; height: 7px; border-radius: 50%; background: var(--working); animation: blink 1.6s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  #counters { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--dim); letter-spacing: .06em; }
+  #counters b { color: var(--ink); font-weight: 600; }
+  #counters .cw b { color: var(--working); }
+  #counters .cb b { color: var(--blocked); }
+  #hamburger {
+    display: none; background: none; border: 1px solid var(--line2); border-radius: 6px;
+    color: var(--ink); width: 34px; height: 34px; font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
+
+  #wrap { flex: 1; display: flex; min-height: 0; }
+
+  /* ── the board (workspaces → tabs) ────────────── */
+  aside {
+    width: 272px; flex-shrink: 0; overflow-y: auto;
+    border-right: 1px solid var(--line); background: var(--panel);
+    padding: 14px 0 24px;
+  }
+  .board-head { padding: 0 18px 10px; font-size: 10px; letter-spacing: .18em; color: var(--red); text-transform: uppercase; }
+  .ws-name { padding: 12px 18px 4px; font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; display: flex; align-items: center; gap: 7px; }
+  .tab {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 18px 8px 26px; cursor: pointer; background: none; border: none;
+    color: var(--ink); font: inherit; text-align: left;
+    border-left: 2px solid transparent;
+  }
+  .tab:hover { background: #10141b; }
+  .tab:focus-visible { outline: 1px solid var(--done); outline-offset: -1px; }
+  .tab.sel { background: #10141b; border-left-color: var(--red); }
+  .tab .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab .n { color: var(--dim); font-size: 11px; }
+  .tick { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--unknown); }
+  .tick.working { background: var(--working); box-shadow: 0 0 8px var(--working); animation: blink 1.2s steps(2, jump-none) infinite; }
+  .tick.idle { background: var(--idle); }
+  .tick.blocked { background: var(--blocked); box-shadow: 0 0 8px var(--blocked); }
+  .tick.done { background: var(--done); }
+
+  /* ── canvas ───────────────────────────────────── */
+  main { flex: 1; overflow: auto; position: relative; }
+  #canvas {
+    position: relative; min-height: 100%; padding: 26px 34px 60px;
+    background-image: radial-gradient(circle, #141a23 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+  #stage { position: relative; z-index: 1; }
+  #edges { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+  #tabhead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 34px; }
+  #tabhead h2 { font-size: 17px; font-weight: 700; letter-spacing: .01em; }
+  #tabhead h2::before { content: "▸ "; color: var(--red); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); letter-spacing: .05em; }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; font-style: normal; }
+
+  #flow { display: flex; align-items: flex-start; gap: 64px; flex-wrap: nowrap; }
+  .node { position: relative; width: 240px; flex-shrink: 0; }
+  .node .pin {
+    width: 13px; height: 13px; border-radius: 50%; margin: 0 auto 14px;
+    background: var(--bg); border: 2px solid var(--unknown); position: relative; z-index: 2;
+    transition: box-shadow .3s;
+  }
+  .node.working .pin { width: 15px; height: 15px; border-color: var(--working); background: var(--working); box-shadow: 0 0 14px var(--working), 0 0 40px rgba(63,185,80,.5); }
+  .node.idle .pin { border-color: var(--idle); }
+  .node.blocked .pin { border-color: var(--blocked); background: var(--blocked); box-shadow: 0 0 14px var(--blocked), 0 0 34px rgba(248,81,73,.45); animation: alarm 1s steps(2, jump-none) infinite; }
+  .node.done .pin { border-color: var(--done); }
+  @keyframes alarm { 50% { box-shadow: 0 0 0 var(--blocked); opacity: .45; } }
+  .node.working .pin::before, .node.working .pin::after {
+    content: ""; position: absolute; inset: -3px; border-radius: 50%;
+    border: 1.5px solid var(--working); animation: radar 1.6s ease-out infinite;
+  }
+  .node.working .pin::after { animation-delay: .8s; }
+  @keyframes radar { from { transform: scale(1); opacity: .9; } to { transform: scale(3.6); opacity: 0; } }
+
+  .card {
+    background: linear-gradient(160deg, #0e1219, #090c11);
+    border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; cursor: pointer; position: relative;
+    transition: border-color .25s, box-shadow .25s, transform .25s;
+  }
+  .card:hover { border-color: #33405a; transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+  .card:focus-visible { outline: 1px solid var(--done); outline-offset: 2px; }
+  .node.working .card {
+    border-color: rgba(63,185,80,.65);
+    box-shadow: 0 0 30px rgba(63,185,80,.18), inset 0 0 24px rgba(63,185,80,.05);
+    animation: heartbeat 2.4s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { box-shadow: 0 0 30px rgba(63,185,80,.18), inset 0 0 24px rgba(63,185,80,.05); }
+    50% { box-shadow: 0 0 44px rgba(63,185,80,.34), inset 0 0 24px rgba(63,185,80,.09); }
+  }
+  .node.blocked .card {
+    border-color: rgba(248,81,73,.7);
+    animation: redalert 1.1s ease-in-out infinite;
+  }
+  @keyframes redalert {
+    0%, 100% { box-shadow: 0 0 26px rgba(248,81,73,.2), inset 0 0 20px rgba(248,81,73,.05); }
+    50% { box-shadow: 0 0 48px rgba(248,81,73,.5), inset 0 0 28px rgba(248,81,73,.14); border-color: var(--blocked); }
+  }
+  .card .step { position: absolute; top: -9px; left: 12px; padding: 0 6px; background: var(--bg); font-size: 10px; color: var(--dim); letter-spacing: .1em; }
+  .card .pname { font-weight: 700; font-size: 13px; margin-bottom: 4px; overflow-wrap: anywhere; }
+  .card .meta { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { display: inline-block; margin-top: 9px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 9px; border-radius: 4px; border: 1px solid; }
+  .badge.working { color: #7ee787; border-color: rgba(63,185,80,.7); text-shadow: 0 0 10px rgba(63,185,80,.8); animation: blink 1.2s steps(2, jump-none) infinite; }
+  .badge.idle { color: var(--idle); border-color: rgba(210,153,34,.5); }
+  .badge.blocked { color: #ff7b72; border-color: rgba(248,81,73,.7); text-shadow: 0 0 10px rgba(248,81,73,.8); animation: blink .8s steps(2, jump-none) infinite; }
+  .badge.done { color: var(--done); border-color: rgba(88,166,255,.5); }
+  .badge.unknown { color: var(--unknown); border-color: var(--line2); }
+
+  /* status changed since last poll — the board flashes */
+  .card.changed { animation: changed 1.4s ease-out; }
+  @keyframes changed {
+    0% { box-shadow: 0 0 0 2px var(--done), 0 0 30px rgba(88,166,255,.5); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  #empty, #offline { color: var(--dim); text-align: center; margin-top: 15vh; font-size: 13px; line-height: 2; }
+  #offline b, #empty b { color: var(--red); }
+
+  /* ── urgent strip: pinned above the graph ─────── */
+  #urgent { margin-bottom: 34px; display: flex; flex-direction: column; gap: 20px; }
+  .urg-head { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+  .urg-head.red { color: var(--blocked); }
+  .urg-head.amber { color: var(--idle); }
+  .urg-cards { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ucard {
+    background: linear-gradient(160deg, #0e1219, #090c11); border-radius: 8px;
+    padding: 9px 13px; cursor: pointer; font-size: 12px; max-width: 340px;
+    border: 1px solid var(--line2); transition: transform .2s, box-shadow .2s;
+  }
+  .ucard:hover { transform: translateY(-2px); }
+  .ucard.blocked { border-color: rgba(248,81,73,.7); animation: redalert 1.1s ease-in-out infinite; }
+  .ucard.question { border-color: rgba(210,153,34,.55); }
+  .ucard.question:hover { box-shadow: 0 0 22px rgba(210,153,34,.18); }
+  .ucard .who { font-weight: 700; }
+  .ucard .t { color: var(--dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
+  .ucard .q { color: var(--dim); font-size: 11px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
+
+  /* ── board alarm: visible the moment the menu opens ── */
+  #boardalarm { margin: 0 12px 12px; border: 1px solid rgba(248,81,73,.7); border-radius: 8px; padding: 10px 12px; font-size: 11.5px; animation: redalert 1.1s ease-in-out infinite; }
+  #boardalarm .h { color: #ff7b72; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: 10px; margin-bottom: 4px; }
+  #boardalarm .t { color: var(--dim); line-height: 1.6; }
+  #boardalarm.amber { border-color: rgba(210,153,34,.55); animation: none; }
+  #boardalarm.amber .h { color: var(--idle); }
+
+  /* edge styling (SVG) */
+  .edge { fill: none; stroke: var(--line2); stroke-width: 1.5; }
+  .edge.working { stroke: rgba(63,185,80,.85); stroke-width: 2.5; filter: drop-shadow(0 0 5px rgba(63,185,80,.7)); }
+  .edge.idle { stroke: rgba(210,153,34,.45); }
+  .edge.blocked { stroke: rgba(248,81,73,.8); stroke-width: 2; stroke-dasharray: 6 5; animation: march .7s linear infinite; filter: drop-shadow(0 0 4px rgba(248,81,73,.6)); }
+  .edge.done { stroke: rgba(88,166,255,.3); }
+  @keyframes march { to { stroke-dashoffset: -11; } }
+  .edge.hot { stroke-width: 2.5; }
+
+  /* ── inspector (click a node) ─────────────────── */
+  #detail {
+    position: fixed; top: 52px; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 40;
+    background: var(--panel); border-left: 1px solid var(--line2);
+    transform: translateX(102%); transition: transform .3s cubic-bezier(.2,.9,.25,1);
+    display: flex; flex-direction: column; box-shadow: -20px 0 60px rgba(0,0,0,.55);
+  }
+  #detail.open { transform: translateX(0); }
+  #detail .dhead { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; }
+  #detail .dhead .step { font-size: 10px; letter-spacing: .14em; color: var(--dim); }
+  #detail .dhead .x { margin-left: auto; background: none; border: 1px solid var(--line2); border-radius: 6px; color: var(--ink); width: 28px; height: 28px; cursor: pointer; font-size: 13px; }
+  #detail .dhead .x:hover { border-color: var(--red); color: var(--red); }
+  #detail h3 { padding: 12px 16px 2px; font-size: 15px; overflow-wrap: anywhere; }
+  #detail .dmeta { padding: 6px 16px 12px; color: var(--dim); font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; }
+  #detail .dmeta b { color: var(--ink); font-weight: 600; }
+  #detail .tailhead { padding: 8px 16px; font-size: 10px; letter-spacing: .16em; color: var(--red); text-transform: uppercase; border-top: 1px solid var(--line); }
+  #tail {
+    flex: 1; overflow: auto; margin: 0; padding: 12px 16px 20px;
+    background: #05070a; color: #a9b7c9; font: 11px/1.65 var(--mono);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+
+  /* ── mobile: drawer + vertical spine ──────────── */
+  #scrim { display: none; }
+  @media (max-width: 760px) {
+    #hamburger { display: block; }
+    #counters { display: none; }
+    aside {
+      position: fixed; inset: 0 auto 0 0; z-index: 30; width: min(300px, 84vw);
+      transform: translateX(-102%); transition: transform .28s cubic-bezier(.2,.9,.25,1);
+      border-right: 1px solid var(--line2); box-shadow: 0 0 60px rgba(0,0,0,.6);
+    }
+    aside.open { transform: translateX(0); }
+    #scrim.show { display: block; position: fixed; inset: 0; z-index: 20; background: rgba(4,6,9,.65); }
+    #canvas { padding: 20px 16px 60px 46px; }
+    #flow { flex-direction: column; gap: 56px; }
+    .node { width: 100%; }
+    .node .pin { position: absolute; left: -30px; top: 18px; margin: 0; }
+    #detail { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 62vh;
+      border-left: none; border-top: 1px solid var(--line2);
+      transform: translateY(103%); box-shadow: 0 -20px 60px rgba(0,0,0,.55); }
+    #detail.open { transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button id="hamburger" aria-label="Open the board">☰</button>
+  <div class="brand">Herd<b>R</b>graph</div>
+  <div class="live"><span class="pip"></span><span id="liveword">sample data — layout preview</span></div>
+  <div id="counters"></div>
+</header>
+<div id="wrap">
+  <div id="scrim"></div>
+  <aside id="board" aria-label="Workspaces and tabs"></aside>
+  <main><div id="canvas">
+    <svg id="edges" aria-hidden="true"></svg>
+    <div id="stage"><div id="empty">select a tab on the board</div></div>
+  </div></main>
+</div>
+<div id="detail" role="dialog" aria-label="Pane inspector">
+  <div class="dhead">
+    <span class="step" id="dstep"></span>
+    <span class="badge" id="dbadge"></span>
+    <button class="x" id="dclose" aria-label="Close inspector">✕</button>
+  </div>
+  <h3 id="dname"></h3>
+  <div class="dmeta" id="dmeta"></div>
+  <div class="tailhead">Live tail · refreshes 2s</div>
+  <pre id="tail">…</pre>
+</div>
+
+<script>
+let state = null;
+let selected = localStorage.getItem('herdrgraph.tab') || null;
+let prevStatus = {};   // pane id -> status last render (drives the change-flash)
+let API = '';
+const LOCAL = /^(127\.0\.0\.1|localhost)/.test(location.hostname);
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const base = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+
+/* ── drawer ── */
+const board = document.getElementById('board'), scrim = document.getElementById('scrim');
+const setDrawer = (open) => { board.classList.toggle('open', open); scrim.classList.toggle('show', open); };
+document.getElementById('hamburger').addEventListener('click', () => setDrawer(true));
+scrim.addEventListener('click', () => setDrawer(false));
+addEventListener('keydown', (e) => { if (e.key === 'Escape') setDrawer(false); });
+
+/* ── inspector ── */
+const detail = document.getElementById('detail');
+let detailTimer = null;
+async function refreshTail(id) {
+  try {
+    const text = await fetch(API + '/api/pane?id=' + encodeURIComponent(id)).then((r) => r.text());
+    const tail = document.getElementById('tail');
+    tail.textContent = text.trimEnd() || '(pane is quiet)';
+    tail.scrollTop = tail.scrollHeight;
+  } catch { /* keep last tail */ }
+}
+function openDetail(p, tabId, step) {
+  document.getElementById('dstep').textContent = `STEP ${String(step).padStart(2, '0')} · ${p.id}`;
+  const badge = document.getElementById('dbadge');
+  badge.textContent = p.status;
+  badge.className = 'badge ' + p.status;
+  document.getElementById('dname').textContent = p.label;
+  document.getElementById('dmeta').innerHTML =
+    `agent <b>${esc(p.agent || '—')}</b><br>cwd <b>${esc(p.cwd || '—')}</b>`;
+  detail.classList.add('open');
+  clearInterval(detailTimer);
+  refreshTail(p.id);
+  detailTimer = setInterval(() => refreshTail(p.id), 2000);
+  // clicking a card also focuses the tab in herdr, so the app mirrors the map
+  fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: tabId }) }).catch(() => {});
+}
+function closeDetail() { detail.classList.remove('open'); clearInterval(detailTimer); }
+document.getElementById('dclose').addEventListener('click', closeDetail);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+
+/* ── render ── */
+function render() {
+  if (!state || !state.ok) return;
+  const ws = state.workspaces;
+  const all = ws.flatMap((w) => w.tabs);
+  const counts = { working: 0, blocked: 0, idle: 0, done: 0, unknown: 0 };
+  for (const t of all) for (const p of t.panes) counts[p.status] = (counts[p.status] || 0) + 1;
+  document.getElementById('counters').innerHTML =
+    `<span class="cw"><b>${counts.working}</b> working</span>` +
+    `<span class="cb"><b>${counts.blocked}</b> blocked</span>` +
+    `<span><b>${all.reduce((n, t) => n + t.panes.length, 0)}</b> panes</span>`;
+
+  // urgent items are global — every workspace, every tab
+  const urgent = { blocked: [], questions: [] };
+  for (const w of ws) for (const t of w.tabs) for (const p of t.panes) {
+    if (p.status === 'blocked') urgent.blocked.push({ p, t });
+    else if (p.question) urgent.questions.push({ p, t });
+  }
+  const names = (list) => [...new Set(list.map((x) => x.t.label))].map(esc).join(' · ');
+  const alarm = urgent.blocked.length
+    ? `<div id="boardalarm"><div class="h">⚠ ${urgent.blocked.length} blocked</div><div class="t">${names(urgent.blocked)}</div></div>`
+    : urgent.questions.length
+      ? `<div id="boardalarm" class="amber"><div class="h">? ${urgent.questions.length} waiting on you</div><div class="t">${names(urgent.questions)}</div></div>`
+      : '';
+
+  board.innerHTML = '<div class="board-head">The Board</div>' + alarm + ws.map((w) => `
+    <div class="ws-name">${esc(w.label)}</div>
+    ${w.tabs.map((t) => `
+      <button class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
+        <span class="tick ${t.status}"></span>
+        <span class="name">${esc(t.label)}</span>
+        <span class="n">${t.panes.length}</span>
+      </button>`).join('')}`).join('');
+  board.querySelectorAll('.tab').forEach((el) => el.addEventListener('click', () => {
+    selected = el.dataset.tab;
+    localStorage.setItem('herdrgraph.tab', selected);
+    fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: selected }) }).catch(() => {});
+    setDrawer(false);
+    render();
+    // a monitoring board should land on the live thing
+    requestAnimationFrame(() => document.querySelector('.node.working')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
+  }));
+
+  const stage = document.getElementById('stage');
+  const tab = all.find((t) => t.id === selected);
+
+  // pinned at the very top: 1 blockers, 2 questions — jump straight to the pane
+  const urgentHtml = (urgent.blocked.length || urgent.questions.length) ? `
+    <div id="urgent">
+      ${urgent.blocked.length ? `
+        <div><div class="urg-head red">1 · Blockers — needs you now</div><div class="urg-cards">
+          ${urgent.blocked.map(({ p, t }) => `
+            <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+            </div>`).join('')}
+        </div></div>` : ''}
+      ${urgent.questions.length ? `
+        <div><div class="urg-head amber">2 · Questions — waiting on your answer</div><div class="urg-cards">
+          ${urgent.questions.map(({ p, t }) => `
+            <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+              <div class="q">${esc(p.question)}</div>
+            </div>`).join('')}
+        </div></div>` : ''}
+    </div>` : '';
+  const wireUrgent = () => stage.querySelectorAll('.ucard').forEach((el) => {
+    const go = () => {
+      selected = el.dataset.tab;
+      localStorage.setItem('herdrgraph.tab', selected);
+      render();
+      const t2 = all.find((t) => t.id === selected);
+      const pane = t2?.panes.find((p) => p.id === el.dataset.pane);
+      if (pane) openDetail(pane, selected, t2.panes.indexOf(pane) + 1);
+    };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+
+  if (!tab) { stage.innerHTML = urgentHtml + '<div id="empty">select a tab on the board</div>'; wireUrgent(); drawEdges(); return; }
+
+  const order = ['working', 'blocked', 'idle', 'done', 'unknown'];
+  const tc = {};
+  for (const p of tab.panes) tc[p.status] = (tc[p.status] || 0) + 1;
+  stage.innerHTML = urgentHtml + `
+    <div id="tabhead">
+      <h2>${esc(tab.label)}</h2>
+      ${order.filter((s) => tc[s]).map((s) =>
+        `<span class="chip"><i style="background:var(--${s})"></i>${tc[s]} ${s}</span>`).join('')}
+    </div>
+    <div id="flow">
+      ${tab.panes.map((p, i) => {
+        const changed = prevStatus[p.id] && prevStatus[p.id] !== p.status;
+        return `
+        <div class="node ${p.status}" data-pane="${p.id}">
+          <div class="pin"></div>
+          <div class="card ${changed ? 'changed' : ''}" role="button" tabindex="0" data-tab="${tab.id}">
+            <div class="step">STEP ${String(i + 1).padStart(2, '0')}</div>
+            <div class="pname">${esc(p.label)}</div>
+            <div class="meta">${p.agent ? esc(p.agent) + ' · ' : ''}${esc(base(p.cwd))}</div>
+            <span class="badge ${p.status}">${p.status}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  stage.querySelectorAll('.card').forEach((el) => {
+    const node = el.closest('.node');
+    const pane = tab.panes.find((p) => p.id === node.dataset.pane);
+    const step = tab.panes.indexOf(pane) + 1;
+    const go = () => openDetail(pane, el.dataset.tab, step);
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  wireUrgent();
+  for (const p of tab.panes) prevStatus[p.id] = p.status;
+  requestAnimationFrame(drawEdges);
+}
+
+/* ── edges: wire consecutive nodes, dots travel by status ── */
+function drawEdges() {
+  const svg = document.getElementById('edges');
+  const canvas = document.getElementById('canvas');
+  const nodes = [...document.querySelectorAll('.node')];
+  svg.innerHTML = '';
+  if (nodes.length < 2) return;
+  const W = canvas.scrollWidth, H = canvas.scrollHeight;
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const vertical = matchMedia('(max-width: 760px)').matches;
+  const cr = canvas.getBoundingClientRect();
+  const pt = (el) => {
+    const r = el.querySelector('.pin').getBoundingClientRect();
+    return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
+  };
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = pt(nodes[i]), b = pt(nodes[i + 1]);
+    const status = nodes[i].className.replace('node ', '').trim();
+    const d = vertical
+      ? `M ${a.x} ${a.y} C ${a.x - 14} ${(a.y + b.y) / 2}, ${b.x - 14} ${(a.y + b.y) / 2}, ${b.x} ${b.y}`
+      : `M ${a.x} ${a.y} C ${(a.x + b.x) / 2} ${a.y - 12}, ${(a.x + b.x) / 2} ${b.y - 12}, ${b.x} ${b.y}`;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', `edge ${status}`);
+    svg.appendChild(path);
+    if (status === 'working' || status === 'idle') {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('r', status === 'working' ? 3.5 : 2.5);
+      dot.setAttribute('fill', status === 'working' ? '#3fb950' : '#d29922');
+      if (status === 'working') dot.setAttribute('filter', 'drop-shadow(0 0 4px #3fb950)');
+      const motion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+      motion.setAttribute('dur', status === 'working' ? '1.6s' : '5s');
+      motion.setAttribute('repeatCount', 'indefinite');
+      motion.setAttribute('path', d);
+      dot.appendChild(motion);
+      svg.appendChild(dot);
+    }
+  }
+}
+addEventListener('resize', () => requestAnimationFrame(drawEdges));
+
+/* ── connect ── */
+async function connect() {
+  if (!LOCAL) {
+    try {
+      const cfg = await fetch('config.json?' + Date.now()).then((r) => r.json());
+      API = cfg.api || '';
+    } catch { API = ''; }
+    if (!API) {
+      document.getElementById('liveword').textContent = 'offline';
+      document.getElementById('stage').innerHTML =
+        '<div id="offline"><b>daemon offline</b><br>start herdrgraph on the Mac, then reload</div>';
+      return;
+    }
+  }
+  const es = new EventSource(API + '/events');
+  es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
+  es.onerror = () => { document.getElementById('liveword').textContent = 'reconnecting'; };
+}
+
+// ── SYNTHETIC SAMPLE DATA — not the live herd. Design preview only. ──
+const SAMPLE = { ok: true, ts: Date.now(), workspaces: [
+  { id: "w1", label: "My Projects", number: 1, focused: true, status: "blocked", tabs: [
+    { id: "w1:t1", label: "Idea slicer", number: 1, focused: true, status: "blocked", panes: [
+      { id: "p1", label: "Idea slicer Green Pass", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
+      { id: "p2", label: "Idea slicer SDD Skeleton", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
+      { id: "p3", label: "Idea slicer Full SDD", agent: "omp", status: "working", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
+      { id: "p4", label: "Idea slicer Feature Tickets", agent: "omp", status: "blocked", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
+      { id: "p5", label: "Idea slicer Tester", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: "Do you want to proceed with the rebuilt test suite? (yes/no)" },
+      { id: "p6", label: "Idea slicer Manager", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
+    ]},
+    { id: "w1:t2", label: "Freedom", number: 2, focused: false, status: "blocked", panes: [
+      { id: "p7", label: "Freedom backend", agent: "omp", status: "working", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null },
+      { id: "p8", label: "Freedom frontend", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null },
+      { id: "p9", label: "Freedom DB migrations", agent: "omp", status: "blocked", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null },
+    ]},
+  ]},
+  { id: "w2", label: "Workflow Tool builds", number: 2, focused: false, status: "idle", tabs: [
+    { id: "w2:t1", label: "HerdRgraph", number: 1, focused: false, status: "idle", panes: [
+      { id: "p10", label: "herdrgraph daemon", agent: "node", status: "done", cwd: "/Users/tr3/Documents/repos/herdrgraph", focused: false, question: null },
+      { id: "p11", label: "deploy gate", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/herdrgraph", focused: false, question: "Approve deploy to production? [y/n]" },
+    ]},
+  ]},
+]};
+state = SAMPLE;
+selected = "w1:t1";
+document.getElementById('liveword').textContent = 'sample data';
+document.querySelector('.live .pip').style.background = 'var(--idle)';
+render();
+
+</script>
+</body>
+</html>
