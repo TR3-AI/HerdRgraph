@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>roundup — the herd at a glance</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #121724; --line: #1f2739; --text: #dbe2f0; --dim: #7b87a3;
+    --working: #22c55e; --idle: #eab308; --blocked: #ef4444; --done: #3b82f6; --unknown: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, "SF Pro", system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+  header { padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; }
+  header h1 { font-size: 16px; letter-spacing: .04em; }
+  header h1 span { color: var(--working); }
+  header .sub { color: var(--dim); font-size: 12px; }
+  #wrap { flex: 1; display: flex; min-height: 0; }
+  aside { width: 260px; border-right: 1px solid var(--line); overflow-y: auto; padding: 8px 0; flex-shrink: 0; }
+  main { flex: 1; overflow: auto; padding: 18px 22px; }
+  .ws { margin: 6px 0 2px; }
+  .ws-name { padding: 4px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); display: flex; gap: 6px; align-items: center; }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 22px; cursor: pointer; border-left: 2px solid transparent; }
+  .tab:hover { background: var(--panel); }
+  .tab.sel { background: var(--panel); border-left-color: var(--working); }
+  .tab .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab .n { color: var(--dim); font-size: 11px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--unknown); }
+  .dot.working { background: var(--working); animation: pulse 1.1s ease-in-out infinite; }
+  .dot.idle { background: var(--idle); }
+  .dot.blocked { background: var(--blocked); }
+  .dot.done { background: var(--done); }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } }
+  #summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  #summary h2 { font-size: 18px; margin-right: 10px; }
+  .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); display: flex; gap: 6px; align-items: center; }
+  #flow { display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; }
+  .hop { display: flex; align-items: center; }
+  .arrow { color: var(--dim); padding: 0 10px; font-size: 18px; user-select: none; }
+  .card { width: 230px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--unknown); border-radius: 10px; padding: 10px 12px; cursor: pointer; position: relative; transition: border-color .2s, transform .2s; }
+  .card:hover { transform: translateY(-2px); }
+  .card.working { border-top-color: var(--working); animation: cardpulse 1.4s ease-in-out infinite; }
+  .card.idle { border-top-color: var(--idle); }
+  .card.blocked { border-top-color: var(--blocked); }
+  .card.done { border-top-color: var(--done); }
+  .card.focused { outline: 1px solid var(--working); }
+  @keyframes cardpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.28); } 50% { box-shadow: 0 0 14px 2px rgba(34,197,94,.28); } }
+  .card .step { position: absolute; top: -11px; left: -8px; width: 22px; height: 22px; border-radius: 50%; background: var(--line); color: var(--text); font-size: 11px; display: grid; place-items: center; border: 1px solid var(--bg); }
+  .card .pname { font-weight: 600; font-size: 13px; margin: 2px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .meta { color: var(--dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; padding: 2px 8px; border-radius: 999px; margin-top: 7px; display: inline-block; }
+  .badge.working { background: rgba(34,197,94,.15); color: var(--working); }
+  .badge.idle { background: rgba(234,179,8,.15); color: var(--idle); }
+  .badge.blocked { background: rgba(239,68,68,.15); color: var(--blocked); }
+  .badge.done { background: rgba(59,130,246,.15); color: var(--done); }
+  .badge.unknown { background: rgba(100,116,139,.18); color: var(--unknown); }
+  #empty { color: var(--dim); margin-top: 40px; text-align: center; }
+  #err { color: var(--blocked); padding: 20px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🤠 <span>roundup</span></h1>
+  <div class="sub" id="sub">watching the herd…</div>
+</header>
+<div id="wrap">
+  <aside id="side"></aside>
+  <main id="main"><div id="empty">pick a tab on the left</div></main>
+</div>
+<script>
+let state = null;
+let selected = localStorage.getItem('roundup.tab') || null;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const base = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+
+function render() {
+  if (!state) return;
+  if (!state.ok) { document.getElementById('sub').textContent = state.error || 'herdr unavailable'; return; }
+  const total = state.workspaces.reduce((n, w) => n + w.tabs.reduce((m, t) => m + t.panes.length, 0), 0);
+  document.getElementById('sub').textContent =
+    `${state.workspaces.length} workspaces · ${state.workspaces.reduce((n, w) => n + w.tabs.length, 0)} tabs · ${total} panes · live`;
+
+  const side = document.getElementById('side');
+  side.innerHTML = state.workspaces.map((w) => `
+    <div class="ws">
+      <div class="ws-name"><span class="dot ${w.status}"></span>${esc(w.label)}</div>
+      ${w.tabs.map((t) => `
+        <div class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
+          <span class="dot ${t.status}"></span>
+          <span class="name">${esc(t.label)}</span>
+          <span class="n">${t.panes.length}</span>
+        </div>`).join('')}
+    </div>`).join('');
+  side.querySelectorAll('.tab').forEach((el) => el.addEventListener('click', () => {
+    selected = el.dataset.tab;
+    localStorage.setItem('roundup.tab', selected);
+    fetch('/api/focus', { method: 'POST', body: JSON.stringify({ tab: selected }) }).catch(() => {});
+    render();
+  }));
+
+  const main = document.getElementById('main');
+  const tab = state.workspaces.flatMap((w) => w.tabs).find((t) => t.id === selected);
+  if (!tab) { main.innerHTML = '<div id="empty">pick a tab on the left</div>'; return; }
+
+  const counts = {};
+  for (const p of tab.panes) counts[p.status] = (counts[p.status] || 0) + 1;
+  const order = ['working', 'blocked', 'idle', 'done', 'unknown'];
+  main.innerHTML = `
+    <div id="summary">
+      <h2>${esc(tab.label)}</h2>
+      ${order.filter((s) => counts[s]).map((s) =>
+        `<span class="chip"><span class="dot ${s}"></span>${counts[s]} ${s}</span>`).join('')}
+    </div>
+    <div id="flow">
+      ${tab.panes.map((p, i) => `
+        ${i ? '<div class="hop"><div class="arrow">→</div></div>' : ''}
+        <div class="hop"><div class="card ${p.status} ${p.focused ? 'focused' : ''}" data-tab="${tab.id}">
+          <div class="step">${i + 1}</div>
+          <div class="pname">${esc(p.label)}</div>
+          <div class="meta">${p.agent ? esc(p.agent) + ' · ' : ''}${esc(base(p.cwd))}</div>
+          <span class="badge ${p.status}">${p.status}</span>
+        </div></div>`).join('')}
+    </div>`;
+  main.querySelectorAll('.card').forEach((el) => el.addEventListener('click', () => {
+    fetch('/api/focus', { method: 'POST', body: JSON.stringify({ tab: el.dataset.tab }) }).catch(() => {});
+  }));
+}
+
+const es = new EventSource('/events');
+es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
+es.onerror = () => { document.getElementById('sub').textContent = 'connection lost — retrying…'; };
+render();
+</script>
+</body>
+</html>
