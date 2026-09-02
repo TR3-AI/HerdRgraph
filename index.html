@@ -68,13 +68,12 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .tab.sel { background: #10141b; border-left-color: var(--red); }
   .tab .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab .n { color: var(--dim); font-size: 11px; }
-  /* tabs carrying a blocker flash red; a question gets an amber pill */
-  .tab.has-blocked { animation: tabalert 1.1s ease-in-out infinite; }
-  @keyframes tabalert { 0%, 100% { background: rgba(248,81,73,.04); } 50% { background: rgba(248,81,73,.18); } }
-  .tab.has-blocked .name { color: #ff9d97; }
+  /* the dots carry the alarm: red flash = blocker inside, amber = question.
+     count pills stay lit but static. */
+  .qdot { width: 8px; height: 8px; border-radius: 50%; background: var(--idle); box-shadow: 0 0 8px var(--idle); animation: blink 1.2s steps(2, jump-none) infinite; flex-shrink: 0; margin-left: -3px; }
   .pill { min-width: 17px; height: 17px; padding: 0 5px; border-radius: 999px; font-size: 10px; font-weight: 700; display: inline-grid; place-items: center; flex-shrink: 0; }
-  .pill.red { background: var(--blocked); color: #fff; box-shadow: 0 0 10px rgba(248,81,73,.8); animation: blink 1s steps(2, jump-none) infinite; }
-  .pill.amber { background: var(--idle); color: #14100a; box-shadow: 0 0 8px rgba(210,153,34,.6); }
+  .pill.red { background: var(--blocked); color: #fff; }
+  .pill.amber { background: var(--idle); color: #14100a; }
   /* overview button pinned above the workspaces */
   #ovbtn {
     display: flex; align-items: center; gap: 9px; width: calc(100% - 24px); margin: 0 12px 12px;
@@ -109,7 +108,7 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .tick { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--unknown); }
   .tick.working { background: var(--working); box-shadow: 0 0 8px var(--working); animation: blink 1.2s steps(2, jump-none) infinite; }
   .tick.idle { background: var(--idle); }
-  .tick.blocked { background: var(--blocked); box-shadow: 0 0 8px var(--blocked); }
+  .tick.blocked { background: var(--blocked); box-shadow: 0 0 8px var(--blocked); animation: blink .8s steps(2, jump-none) infinite; }
   .tick.done { background: var(--done); }
 
   /* ── canvas ───────────────────────────────────── */
@@ -385,8 +384,8 @@ function render() {
       const tb = t.panes.filter((p) => p.status === 'blocked').length;
       const tq = t.panes.filter((p) => p.question).length;
       return `
-      <button class="tab ${t.id === selected ? 'sel' : ''} ${tb ? 'has-blocked' : ''}" data-tab="${t.id}">
-        <span class="tick ${t.status}"></span>
+      <button class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
+        <span class="tick ${tb ? 'blocked' : t.status}"></span>${tq ? '<span class="qdot" title="question waiting"></span>' : ''}
         <span class="name">${esc(t.label)}</span>
         ${tb ? `<span class="pill red" title="${tb} blocked">${tb}</span>` : ''}
         ${tq ? `<span class="pill amber" title="${tq} question${tq > 1 ? 's' : ''}">${tq}</span>` : ''}
