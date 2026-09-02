@@ -84,11 +84,12 @@ async function poll() {
 }
 
 // herdr has no "waiting for an answer" status, so questions are sniffed from
-// the pane's recent text. ponytail: heuristic, 10s cadence, idle panes only —
-// false positives show their matched line so the owner can judge.
+// the pane's recent text. only INTERACTIVE MENUS count (option pickers you
+// must answer or Escape out of) — bare "?" chat lines are noise, not questions.
+// ponytail: heuristic, 10s cadence, idle panes only.
 let prevPanes = new Map()
 let lastQScan = 0
-const Q_RE = /(?:\?\s*$|do you want to proceed|approve|\[y\/n\]|\(yes\/no\)|waiting for|esc to cancel|allow once)/i
+const Q_RE = /(?:do you want to proceed|esc to cancel|❯\s*\d+\.|\[y\/n\]|\(yes\/no\)|enter to select|↑↓.*navigate|allow once|allow always)/i
 
 // push via ntfy — Bobby already runs it. one POST per transition, no deps.
 const NTFY_TOPIC = process.env.NTFY_TOPIC || ''

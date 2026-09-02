@@ -156,9 +156,21 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
 
   /* ── urgent strip: pinned above the graph ─────── */
   #urgent { margin-bottom: 34px; display: flex; flex-direction: column; gap: 20px; }
-  .urg-head { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+  .urg-head {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: none; border: none; padding: 0; margin: 0 0 9px; cursor: pointer;
+    font: inherit; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; text-align: left;
+  }
   .urg-head.red { color: var(--blocked); }
   .urg-head.amber { color: var(--idle); }
+  .urg-head .count {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    display: inline-grid; place-items: center; font-weight: 700; font-size: 11px; letter-spacing: 0;
+  }
+  .urg-head.red .count { background: var(--blocked); color: #fff; box-shadow: 0 0 12px rgba(248,81,73,.8); }
+  .urg-head.amber .count { background: var(--idle); color: #14100a; box-shadow: 0 0 10px rgba(210,153,34,.6); }
+  .urg-head .chev { margin-left: auto; font-size: 12px; opacity: .7; transition: transform .2s; }
+  .urg-head .chev.open { transform: rotate(90deg); }
   .urg-cards { display: flex; flex-wrap: wrap; gap: 10px; }
   .ucard {
     background: linear-gradient(160deg, #0e1219, #090c11); border-radius: 8px;
@@ -265,11 +277,20 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
 let state = null;
 let selected = localStorage.getItem('herdrgraph.tab') || null;
 let prevStatus = {};   // pane id -> status last render (drives the change-flash)
+const urgOpen = { blocked: false, questions: false }; // urgent sections start collapsed
 let API = '';
 const LOCAL = /^(127\.0\.0\.1|localhost)/.test(location.hostname);
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const base = (p) => (p || '').split('/').filter(Boolean).pop() || '';
+const ago = (ts) => {
+  if (!ts) return '';
+  const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (m < 1) return 'just now';
+  if (m < 60) return m + 'm';
+  const h = Math.floor(m / 60);
+  return h < 24 ? h + 'h ' + (m % 60) + 'm' : Math.floor(h / 24) + 'd ' + (h % 24) + 'h';
+};
 
 /* ── drawer ── */
 const board = document.getElementById('board'), scrim = document.getElementById('scrim');
@@ -296,7 +317,7 @@ function openDetail(p, tabId, step) {
   badge.className = 'badge ' + p.status;
   document.getElementById('dname').textContent = p.label;
   document.getElementById('dmeta').innerHTML =
-    `agent <b>${esc(p.agent || '—')}</b><br>cwd <b>${esc(p.cwd || '—')}</b>`;
+    `agent <b>${esc(p.agent || '—')}</b><br>cwd <b>${esc(p.cwd || '—')}</b><br>${p.status} for <b>${ago(p.statusSince)}</b>`;
   detail.classList.add('open');
   clearInterval(detailTimer);
   refreshTail(p.id);
@@ -355,26 +376,44 @@ function render() {
   const stage = document.getElementById('stage');
   const tab = all.find((t) => t.id === selected);
 
-  // pinned at the very top: 1 blockers, 2 questions — jump straight to the pane
+  // pinned at the very top: 1 blockers, 2 questions. more than one item →
+  // collapsed behind a count badge; tap the header to expand. state persists
+  // across the 1s re-renders.
+  const urgSection = (kind, n, label, cards) => {
+    if (!n) return '';
+    const open = urgOpen[kind] || n === 1;
+    return `
+      <div>
+        <button class="urg-head ${kind === 'blocked' ? 'red' : 'amber'}" data-urg="${kind}">
+          <span class="count">${n}</span>
+          <span>${kind === 'blocked' ? '1' : '2'} · ${label}</span>
+          <span class="chev ${open ? 'open' : ''}">▸</span>
+        </button>
+        ${open ? `<div class="urg-cards">${cards}</div>` : ''}
+      </div>`;
+  };
   const urgentHtml = (urgent.blocked.length || urgent.questions.length) ? `
     <div id="urgent">
-      ${urgent.blocked.length ? `
-        <div><div class="urg-head red">1 · Blockers — needs you now</div><div class="urg-cards">
-          ${urgent.blocked.map(({ p, t }) => `
-            <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
-              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
-            </div>`).join('')}
-        </div></div>` : ''}
-      ${urgent.questions.length ? `
-        <div><div class="urg-head amber">2 · Questions — waiting on your answer</div><div class="urg-cards">
-          ${urgent.questions.map(({ p, t }) => `
-            <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
-              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
-              <div class="q">${esc(p.question)}</div>
-            </div>`).join('')}
-        </div></div>` : ''}
+      ${urgSection('blocked', urgent.blocked.length, 'Blockers — needs you now',
+        urgent.blocked.map(({ p, t }) => `
+          <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+            <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+            <div class="q">blocked for ${ago(p.statusSince)}</div>
+          </div>`).join(''))}
+      ${urgSection('questions', urgent.questions.length, 'Questions — waiting on your answer',
+        urgent.questions.map(({ p, t }) => `
+          <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+            <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+            <div class="q">${esc(p.question)}</div>
+            <div class="q">waiting for ${ago(p.statusSince)}</div>
+          </div>`).join(''))}
     </div>` : '';
-  const wireUrgent = () => stage.querySelectorAll('.ucard').forEach((el) => {
+  const wireUrgent = () => {
+    stage.querySelectorAll('.urg-head[data-urg]').forEach((el) => el.addEventListener('click', () => {
+      urgOpen[el.dataset.urg] = !urgOpen[el.dataset.urg];
+      render();
+    }));
+    stage.querySelectorAll('.ucard').forEach((el) => {
     const go = () => {
       selected = el.dataset.tab;
       localStorage.setItem('herdrgraph.tab', selected);
@@ -385,7 +424,8 @@ function render() {
     };
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
-  });
+    });
+  };
 
   if (!tab) { stage.innerHTML = urgentHtml + '<div id="empty">select a tab on the board</div>'; wireUrgent(); drawEdges(); return; }
 
@@ -488,26 +528,29 @@ async function connect() {
 }
 
 // ── SYNTHETIC SAMPLE DATA — not the live herd. Design preview only. ──
+const MENU = "❯ 1. Yes, proceed   2. No, skip   (Esc to cancel)";
 const SAMPLE = { ok: true, ts: Date.now(), workspaces: [
   { id: "w1", label: "My Projects", number: 1, focused: true, status: "blocked", tabs: [
     { id: "w1:t1", label: "Idea slicer", number: 1, focused: true, status: "blocked", panes: [
-      { id: "p1", label: "Idea slicer Green Pass", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
-      { id: "p2", label: "Idea slicer SDD Skeleton", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
-      { id: "p3", label: "Idea slicer Full SDD", agent: "omp", status: "working", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
-      { id: "p4", label: "Idea slicer Feature Tickets", agent: "omp", status: "blocked", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
-      { id: "p5", label: "Idea slicer Tester", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: "Do you want to proceed with the rebuilt test suite? (yes/no)" },
-      { id: "p6", label: "Idea slicer Manager", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null },
+      { id: "p1", label: "Idea slicer Green Pass", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null, statusSince: Date.now()-1000*60*42 },
+      { id: "p2", label: "Idea slicer SDD Skeleton", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null, statusSince: Date.now()-1000*60*31 },
+      { id: "p3", label: "Idea slicer Full SDD", agent: "omp", status: "working", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null, statusSince: Date.now()-1000*60*7 },
+      { id: "p4", label: "Idea slicer Feature Tickets", agent: "omp", status: "blocked", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null, statusSince: Date.now()-1000*60*23 },
+      { id: "p5", label: "Idea slicer Tester", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: MENU, statusSince: Date.now()-1000*60*11 },
+      { id: "p6", label: "Idea slicer Reviewer", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: MENU, statusSince: Date.now()-1000*60*9 },
+      { id: "p7", label: "Idea slicer Docs", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: MENU, statusSince: Date.now()-1000*60*4 },
+      { id: "p8", label: "Idea slicer Manager", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/idea-slicer", focused: false, question: null, statusSince: Date.now()-1000*60*2 },
     ]},
     { id: "w1:t2", label: "Freedom", number: 2, focused: false, status: "blocked", panes: [
-      { id: "p7", label: "Freedom backend", agent: "omp", status: "working", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null },
-      { id: "p8", label: "Freedom frontend", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null },
-      { id: "p9", label: "Freedom DB migrations", agent: "omp", status: "blocked", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null },
+      { id: "p9", label: "Freedom backend", agent: "omp", status: "working", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null, statusSince: Date.now()-1000*60*15 },
+      { id: "p10", label: "Freedom frontend", agent: "omp", status: "done", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null, statusSince: Date.now()-1000*60*55 },
+      { id: "p11", label: "Freedom DB migrations", agent: "omp", status: "blocked", cwd: "/Users/tr3/Documents/repos/freedom", focused: false, question: null, statusSince: Date.now()-1000*60*47 },
     ]},
   ]},
   { id: "w2", label: "Workflow Tool builds", number: 2, focused: false, status: "idle", tabs: [
     { id: "w2:t1", label: "HerdRgraph", number: 1, focused: false, status: "idle", panes: [
-      { id: "p10", label: "herdrgraph daemon", agent: "node", status: "done", cwd: "/Users/tr3/Documents/repos/herdrgraph", focused: false, question: null },
-      { id: "p11", label: "deploy gate", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/herdrgraph", focused: false, question: "Approve deploy to production? [y/n]" },
+      { id: "p12", label: "herdrgraph daemon", agent: "node", status: "done", cwd: "/Users/tr3/Documents/repos/herdrgraph", focused: false, question: null, statusSince: Date.now()-1000*60*90 },
+      { id: "p13", label: "deploy gate", agent: "omp", status: "idle", cwd: "/Users/tr3/Documents/repos/herdrgraph", focused: false, question: "Do you want to proceed? [y/n] (Esc to cancel)", statusSince: Date.now()-1000*60*3 },
     ]},
   ]},
 ]};

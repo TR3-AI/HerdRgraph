@@ -156,9 +156,21 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
 
   /* ── urgent strip: pinned above the graph ─────── */
   #urgent { margin-bottom: 34px; display: flex; flex-direction: column; gap: 20px; }
-  .urg-head { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+  .urg-head {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    background: none; border: none; padding: 0; margin: 0 0 9px; cursor: pointer;
+    font: inherit; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; text-align: left;
+  }
   .urg-head.red { color: var(--blocked); }
   .urg-head.amber { color: var(--idle); }
+  .urg-head .count {
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    display: inline-grid; place-items: center; font-weight: 700; font-size: 11px; letter-spacing: 0;
+  }
+  .urg-head.red .count { background: var(--blocked); color: #fff; box-shadow: 0 0 12px rgba(248,81,73,.8); }
+  .urg-head.amber .count { background: var(--idle); color: #14100a; box-shadow: 0 0 10px rgba(210,153,34,.6); }
+  .urg-head .chev { margin-left: auto; font-size: 12px; opacity: .7; transition: transform .2s; }
+  .urg-head .chev.open { transform: rotate(90deg); }
   .urg-cards { display: flex; flex-wrap: wrap; gap: 10px; }
   .ucard {
     background: linear-gradient(160deg, #0e1219, #090c11); border-radius: 8px;
@@ -265,6 +277,7 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
 let state = null;
 let selected = localStorage.getItem('herdrgraph.tab') || null;
 let prevStatus = {};   // pane id -> status last render (drives the change-flash)
+const urgOpen = { blocked: false, questions: false }; // urgent sections start collapsed
 let API = '';
 const LOCAL = /^(127\.0\.0\.1|localhost)/.test(location.hostname);
 
@@ -363,28 +376,44 @@ function render() {
   const stage = document.getElementById('stage');
   const tab = all.find((t) => t.id === selected);
 
-  // pinned at the very top: 1 blockers, 2 questions — jump straight to the pane
+  // pinned at the very top: 1 blockers, 2 questions. more than one item →
+  // collapsed behind a count badge; tap the header to expand. state persists
+  // across the 1s re-renders.
+  const urgSection = (kind, n, label, cards) => {
+    if (!n) return '';
+    const open = urgOpen[kind] || n === 1;
+    return `
+      <div>
+        <button class="urg-head ${kind === 'blocked' ? 'red' : 'amber'}" data-urg="${kind}">
+          <span class="count">${n}</span>
+          <span>${kind === 'blocked' ? '1' : '2'} · ${label}</span>
+          <span class="chev ${open ? 'open' : ''}">▸</span>
+        </button>
+        ${open ? `<div class="urg-cards">${cards}</div>` : ''}
+      </div>`;
+  };
   const urgentHtml = (urgent.blocked.length || urgent.questions.length) ? `
     <div id="urgent">
-      ${urgent.blocked.length ? `
-        <div><div class="urg-head red">1 · Blockers — needs you now</div><div class="urg-cards">
-          ${urgent.blocked.map(({ p, t }) => `
-            <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
-              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
-              <div class="q">blocked for ${ago(p.statusSince)}</div>
-            </div>`).join('')}
-        </div></div>` : ''}
-      ${urgent.questions.length ? `
-        <div><div class="urg-head amber">2 · Questions — waiting on your answer</div><div class="urg-cards">
-          ${urgent.questions.map(({ p, t }) => `
-            <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
-              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
-              <div class="q">${esc(p.question)}</div>
-              <div class="q">waiting for ${ago(p.statusSince)}</div>
-            </div>`).join('')}
-        </div></div>` : ''}
+      ${urgSection('blocked', urgent.blocked.length, 'Blockers — needs you now',
+        urgent.blocked.map(({ p, t }) => `
+          <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+            <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+            <div class="q">blocked for ${ago(p.statusSince)}</div>
+          </div>`).join(''))}
+      ${urgSection('questions', urgent.questions.length, 'Questions — waiting on your answer',
+        urgent.questions.map(({ p, t }) => `
+          <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+            <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+            <div class="q">${esc(p.question)}</div>
+            <div class="q">waiting for ${ago(p.statusSince)}</div>
+          </div>`).join(''))}
     </div>` : '';
-  const wireUrgent = () => stage.querySelectorAll('.ucard').forEach((el) => {
+  const wireUrgent = () => {
+    stage.querySelectorAll('.urg-head[data-urg]').forEach((el) => el.addEventListener('click', () => {
+      urgOpen[el.dataset.urg] = !urgOpen[el.dataset.urg];
+      render();
+    }));
+    stage.querySelectorAll('.ucard').forEach((el) => {
     const go = () => {
       selected = el.dataset.tab;
       localStorage.setItem('herdrgraph.tab', selected);
@@ -395,7 +424,8 @@ function render() {
     };
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
-  });
+    });
+  };
 
   if (!tab) { stage.innerHTML = urgentHtml + '<div id="empty">select a tab on the board</div>'; wireUrgent(); drawEdges(); return; }
 
