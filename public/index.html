@@ -56,6 +56,17 @@
   .badge.unknown { background: rgba(100,116,139,.18); color: var(--unknown); }
   #empty { color: var(--dim); margin-top: 40px; text-align: center; }
   #err { color: var(--blocked); padding: 20px; }
+  /* phone: tab list becomes a top strip, cards take the full width below */
+  @media (max-width: 700px) {
+    #wrap { flex-direction: column; }
+    aside { width: auto; max-height: 38vh; border-right: none; border-bottom: 1px solid var(--line); }
+    main { padding: 14px; }
+    .card { width: 100%; }
+    .hop { width: 100%; }
+    .arrow { transform: rotate(90deg); padding: 2px 0; margin: 0 auto; }
+    .hop:has(.arrow) { justify-content: center; }
+    header .sub { display: none; }
+  }
 </style>
 </head>
 <body>
