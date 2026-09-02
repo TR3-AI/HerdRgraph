@@ -57,17 +57,48 @@ async function poll() {
     byWs.get(t.workspace_id)?.tabs.push(tab)
   }
   for (const p of panes.panes) {
+    const prev = prevPanes.get(p.pane_id)
     tabById.get(p.tab_id)?.panes.push({
       id: p.pane_id, label: p.label || p.terminal_title_stripped || p.pane_id,
       agent: p.agent || null, status: p.agent_status || 'unknown',
       cwd: p.foreground_cwd || p.cwd || '', focused: p.focused,
+      // question flags survive across polls; the scanner below refreshes them
+      question: prev?.question || null,
     })
   }
   // panes arrive in creation order within each tab — that order IS the pipeline
   // flow. ponytail: v1 infers "next in line" from pane order; a config mapping
   // stage names to panes is the upgrade path if herdr ever exposes roles.
   snapshot = { ok: true, ts: Date.now(), workspaces: [...byWs.values()].sort((a, b) => a.number - b.number) }
+  prevPanes = new Map()
+  for (const w of snapshot.workspaces) for (const t of w.tabs) for (const p of t.panes) prevPanes.set(p.id, p)
   broadcast()
+  maybeScanQuestions()
+}
+
+// herdr has no "waiting for an answer" status, so questions are sniffed from
+// the pane's recent text. ponytail: heuristic, 10s cadence, idle panes only —
+// false positives show their matched line so the owner can judge.
+let prevPanes = new Map()
+let lastQScan = 0
+const Q_RE = /(?:\?\s*$|do you want to proceed|approve|\[y\/n\]|\(yes\/no\)|waiting for|esc to cancel|allow once)/i
+
+async function maybeScanQuestions() {
+  if (Date.now() - lastQScan < 10000) return
+  lastQScan = Date.now()
+  const idle = []
+  for (const w of snapshot.workspaces) for (const t of w.tabs) for (const p of t.panes) {
+    if (p.status === 'idle') idle.push(p)
+  }
+  let changed = false
+  for (const p of idle) {
+    const text = await herdrText(['pane', 'read', p.id, '--source', 'recent-unwrapped', '--lines', '15'])
+    const line = (text || '').split('\n').map((l) => l.trim()).filter(Boolean).reverse()
+      .find((l) => Q_RE.test(l))
+    const q = line ? line.slice(0, 140) : null
+    if (q !== p.question) { p.question = q; changed = true }
+  }
+  if (changed) { lastSent = ''; broadcast() }
 }
 
 const clients = new Set()

@@ -43,3 +43,4 @@ herdr pane run <new-pane-id> "node /Users/tr3/Documents/repos/herdrgraph/bin/her
 - pane order within a tab is the pipeline order. v1 has no other source of "who is next" — do not invent one; if Bobby names a different order, that becomes a config, not a guess.
 - statuses come straight from herdr's `agent_status`. never re-derive them from terminal text.
 - the map is read-only except for tab focus on click. never send text or keys to panes from herdrgraph.
+- the urgent strip pins 1·Blockers (real `blocked` status) then 2·Questions. questions are a text heuristic (idle panes scanned every 10s for prompt patterns) — the matched line is shown as evidence; expect some false positives and never present a flagged pane as certainly waiting.

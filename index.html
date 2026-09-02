@@ -154,6 +154,32 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   #empty, #offline { color: var(--dim); text-align: center; margin-top: 15vh; font-size: 13px; line-height: 2; }
   #offline b, #empty b { color: var(--red); }
 
+  /* ── urgent strip: pinned above the graph ─────── */
+  #urgent { margin-bottom: 34px; display: flex; flex-direction: column; gap: 20px; }
+  .urg-head { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 9px; display: flex; align-items: center; gap: 8px; }
+  .urg-head.red { color: var(--blocked); }
+  .urg-head.amber { color: var(--idle); }
+  .urg-cards { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ucard {
+    background: linear-gradient(160deg, #0e1219, #090c11); border-radius: 8px;
+    padding: 9px 13px; cursor: pointer; font-size: 12px; max-width: 340px;
+    border: 1px solid var(--line2); transition: transform .2s, box-shadow .2s;
+  }
+  .ucard:hover { transform: translateY(-2px); }
+  .ucard.blocked { border-color: rgba(248,81,73,.7); animation: redalert 1.1s ease-in-out infinite; }
+  .ucard.question { border-color: rgba(210,153,34,.55); }
+  .ucard.question:hover { box-shadow: 0 0 22px rgba(210,153,34,.18); }
+  .ucard .who { font-weight: 700; }
+  .ucard .t { color: var(--dim); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
+  .ucard .q { color: var(--dim); font-size: 11px; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px; }
+
+  /* ── board alarm: visible the moment the menu opens ── */
+  #boardalarm { margin: 0 12px 12px; border: 1px solid rgba(248,81,73,.7); border-radius: 8px; padding: 10px 12px; font-size: 11.5px; animation: redalert 1.1s ease-in-out infinite; }
+  #boardalarm .h { color: #ff7b72; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: 10px; margin-bottom: 4px; }
+  #boardalarm .t { color: var(--dim); line-height: 1.6; }
+  #boardalarm.amber { border-color: rgba(210,153,34,.55); animation: none; }
+  #boardalarm.amber .h { color: var(--idle); }
+
   /* edge styling (SVG) */
   .edge { fill: none; stroke: var(--line2); stroke-width: 1.5; }
   .edge.working { stroke: rgba(63,185,80,.85); stroke-width: 2.5; filter: drop-shadow(0 0 5px rgba(63,185,80,.7)); }
@@ -294,7 +320,20 @@ function render() {
     `<span class="cb"><b>${counts.blocked}</b> blocked</span>` +
     `<span><b>${all.reduce((n, t) => n + t.panes.length, 0)}</b> panes</span>`;
 
-  board.innerHTML = '<div class="board-head">The Board</div>' + ws.map((w) => `
+  // urgent items are global — every workspace, every tab
+  const urgent = { blocked: [], questions: [] };
+  for (const w of ws) for (const t of w.tabs) for (const p of t.panes) {
+    if (p.status === 'blocked') urgent.blocked.push({ p, t });
+    else if (p.question) urgent.questions.push({ p, t });
+  }
+  const names = (list) => [...new Set(list.map((x) => x.t.label))].map(esc).join(' · ');
+  const alarm = urgent.blocked.length
+    ? `<div id="boardalarm"><div class="h">⚠ ${urgent.blocked.length} blocked</div><div class="t">${names(urgent.blocked)}</div></div>`
+    : urgent.questions.length
+      ? `<div id="boardalarm" class="amber"><div class="h">? ${urgent.questions.length} waiting on you</div><div class="t">${names(urgent.questions)}</div></div>`
+      : '';
+
+  board.innerHTML = '<div class="board-head">The Board</div>' + alarm + ws.map((w) => `
     <div class="ws-name">${esc(w.label)}</div>
     ${w.tabs.map((t) => `
       <button class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
@@ -315,12 +354,45 @@ function render() {
 
   const stage = document.getElementById('stage');
   const tab = all.find((t) => t.id === selected);
-  if (!tab) { stage.innerHTML = '<div id="empty">select a tab on the board</div>'; drawEdges(); return; }
+
+  // pinned at the very top: 1 blockers, 2 questions — jump straight to the pane
+  const urgentHtml = (urgent.blocked.length || urgent.questions.length) ? `
+    <div id="urgent">
+      ${urgent.blocked.length ? `
+        <div><div class="urg-head red">1 · Blockers — needs you now</div><div class="urg-cards">
+          ${urgent.blocked.map(({ p, t }) => `
+            <div class="ucard blocked" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+            </div>`).join('')}
+        </div></div>` : ''}
+      ${urgent.questions.length ? `
+        <div><div class="urg-head amber">2 · Questions — waiting on your answer</div><div class="urg-cards">
+          ${urgent.questions.map(({ p, t }) => `
+            <div class="ucard question" role="button" tabindex="0" data-tab="${t.id}" data-pane="${p.id}">
+              <div class="t">${esc(t.label)}</div><div class="who">${esc(p.label)}</div>
+              <div class="q">${esc(p.question)}</div>
+            </div>`).join('')}
+        </div></div>` : ''}
+    </div>` : '';
+  const wireUrgent = () => stage.querySelectorAll('.ucard').forEach((el) => {
+    const go = () => {
+      selected = el.dataset.tab;
+      localStorage.setItem('herdrgraph.tab', selected);
+      render();
+      const t2 = all.find((t) => t.id === selected);
+      const pane = t2?.panes.find((p) => p.id === el.dataset.pane);
+      if (pane) openDetail(pane, selected, t2.panes.indexOf(pane) + 1);
+    };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+
+  if (!tab) { stage.innerHTML = urgentHtml + '<div id="empty">select a tab on the board</div>'; wireUrgent(); drawEdges(); return; }
 
   const order = ['working', 'blocked', 'idle', 'done', 'unknown'];
   const tc = {};
   for (const p of tab.panes) tc[p.status] = (tc[p.status] || 0) + 1;
-  stage.innerHTML = `
+  stage.innerHTML = urgentHtml + `
     <div id="tabhead">
       <h2>${esc(tab.label)}</h2>
       ${order.filter((s) => tc[s]).map((s) =>
@@ -349,6 +421,7 @@ function render() {
     el.addEventListener('click', go);
     el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
+  wireUrgent();
   for (const p of tab.panes) prevStatus[p.id] = p.status;
   requestAnimationFrame(drawEdges);
 }
