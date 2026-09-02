@@ -95,13 +95,9 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .ovcard.alert { border-color: rgba(248,81,73,.55); }
   .ovcard .t { color: var(--dim); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 3px; }
   .ovcard .who { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
-  .ovcard .lines { margin: 2px 0 9px; }
-  .ovcard .line { font-size: 11px; margin: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ovcard .line.g { color: var(--working); }
-  .ovcard .line.r { color: var(--blocked); }
-  .ovcard .line.a { color: var(--idle); }
+  .ovcard .words { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; }
+  .ovcard .words b { font-weight: 700; }
   .ovcard .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .ovcard .foot .dim { color: var(--dim); font-size: 11px; }
   .ovcard .foot .pills { display: flex; gap: 6px; }
 
   /* ── canvas ───────────────────────────────────── */
@@ -475,29 +471,21 @@ function render() {
           `<span class="chip"><i style="background:var(--${s})"></i>${counts[s]} ${s}</span>`).join('')}
       </div>
       <div class="ov-grid">
-        ${cards.map(({ w, t, c, q }) => {
-          const blocked = t.panes.filter((p) => p.status === 'blocked');
-          const qs = t.panes.filter((p) => p.question);
-          return `
+        ${cards.map(({ w, t, c, q }) => `
           <div class="ovcard ${c.blocked ? 'alert' : ''}" role="button" tabindex="0" data-tab="${t.id}">
             <div class="t">${esc(w.label)}</div>
             <div class="who">${esc(t.label)}</div>
-            <div class="lines">
-              ${blocked.slice(0, 1).map((p) =>
-                `<div class="line r">⚠ ${esc(p.label)} · blocked ${ago(p.statusSince)}</div>`).join('')}
-              ${qs.slice(0, 1).map((p) =>
-                `<div class="line a">? “${esc(p.question.slice(0, 60))}${p.question.length > 60 ? '…' : ''}”</div>`).join('')}
-            </div>
-            ${(c.blocked || q) ? `
             <div class="foot">
-              <span></span>
+              <div class="words">
+                ${order.filter((s) => s !== 'blocked' && c[s]).map((s) =>
+                  `<span style="color:var(--${s})"><b>${c[s]}</b> ${s}</span>`).join('')}
+              </div>
               <div class="pills">
                 ${c.blocked ? `<span class="pill red" title="${c.blocked} blocked">${c.blocked}</span>` : ''}
                 ${q ? `<span class="pill amber" title="${q} question${q > 1 ? 's' : ''}">${q}</span>` : ''}
               </div>
-            </div>` : ''}
-          </div>`;
-        }).join('')}
+            </div>
+          </div>`).join('')}
       </div>`;
     stage.querySelectorAll('.ovcard').forEach((el) => {
       const go = () => {
