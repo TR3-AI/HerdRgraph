@@ -97,14 +97,8 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
   .ovcard .who { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
   .ovcard .words { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; font-size: 11.5px; }
   .ovcard .words b { font-weight: 700; }
-  .ovcard .foot { display: flex; align-items: center; gap: 8px; }
-  .ovcard .foot .pills { margin-left: auto; display: flex; gap: 6px; }
-  .ovcard .dots { display: flex; gap: 6px; align-items: center; }
-  .pdot { width: 9px; height: 9px; border-radius: 50%; background: var(--unknown); position: relative; }
-  .pdot.working { background: var(--working); box-shadow: 0 0 8px var(--working); animation: blink 1.2s steps(2, jump-none) infinite; }
-  .pdot.idle { background: var(--idle); }
-  .pdot.blocked { background: var(--blocked); box-shadow: 0 0 8px var(--blocked); animation: blink .8s steps(2, jump-none) infinite; }
-  .pdot.done { background: var(--done); }
+  .ovcard .foot { display: flex; align-items: center; justify-content: flex-end; }
+  .ovcard .foot .pills { display: flex; gap: 6px; }
 
   /* ── canvas ───────────────────────────────────── */
   main { flex: 1; overflow: auto; position: relative; }
@@ -166,7 +160,9 @@ FORM: replacement world — operations blueprint (pinned by Bobby from limen + a
     0%, 100% { box-shadow: 0 0 26px rgba(248,81,73,.2), inset 0 0 20px rgba(248,81,73,.05); }
     50% { box-shadow: 0 0 48px rgba(248,81,73,.5), inset 0 0 28px rgba(248,81,73,.14); border-color: var(--blocked); }
   }
-  .card .step { position: absolute; top: -9px; left: 12px; padding: 0 6px; background: var(--bg); font-size: 10px; color: var(--dim); letter-spacing: .1em; }
+  .card .need { position: absolute; top: -9px; left: 12px; padding: 0 6px; background: var(--bg); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+  .card .need.red { color: var(--blocked); }
+  .card .need.amber { color: var(--idle); }
   .card .pname { font-weight: 700; font-size: 13px; margin-bottom: 4px; overflow-wrap: anywhere; }
   .card .meta { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .badge { display: inline-block; margin-top: 9px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 9px; border-radius: 4px; border: 1px solid; }
@@ -335,7 +331,7 @@ async function refreshTail(id) {
   } catch { /* keep last tail */ }
 }
 function openDetail(p, tabId, step) {
-  document.getElementById('dstep').textContent = `STEP ${String(step).padStart(2, '0')} · ${p.id}`;
+  document.getElementById('dstep').textContent = p.id;
   const badge = document.getElementById('dbadge');
   badge.textContent = p.status;
   badge.className = 'badge ' + p.status;
@@ -480,12 +476,10 @@ function render() {
             <div class="t">${esc(w.label)}</div>
             <div class="who">${esc(t.label)}</div>
             <div class="words">
-              ${order.filter((s) => c[s]).map((s) =>
+              ${order.filter((s) => s !== 'blocked' && c[s]).map((s) =>
                 `<span style="color:var(--${s})"><b>${c[s]}</b> ${s}</span>`).join('')}
             </div>
             <div class="foot">
-              <div class="dots">${t.panes.map((p) =>
-                `<span class="pdot ${p.status}" title="${esc(p.label)} — ${p.status}"></span>`).join('')}</div>
               <div class="pills">
                 ${c.blocked ? `<span class="pill red" title="${c.blocked} blocked">${c.blocked}</span>` : ''}
                 ${q ? `<span class="pill amber" title="${q} question${q > 1 ? 's' : ''}">${q}</span>` : ''}
@@ -519,11 +513,15 @@ function render() {
     <div id="flow">
       ${tab.panes.map((p, i) => {
         const changed = prevStatus[p.id] && prevStatus[p.id] !== p.status;
+        // panes aren't steps — no numbering. what matters is who needs Bobby.
+        const need = p.status === 'blocked' ? ['red', 'Needs you']
+          : p.question ? ['amber', /proceed|approve|\[y\/n\]|yes\/no/i.test(p.question) ? 'Needs your approval' : 'Needs your answer']
+          : null;
         return `
         <div class="node ${p.status}" data-pane="${p.id}">
           <div class="pin"></div>
           <div class="card ${changed ? 'changed' : ''}" role="button" tabindex="0" data-tab="${tab.id}">
-            <div class="step">STEP ${String(i + 1).padStart(2, '0')}</div>
+            ${need ? `<div class="need ${need[0]}">${need[1]}</div>` : ''}
             <div class="pname">${esc(p.label)}</div>
             <div class="meta">${p.agent ? esc(p.agent) + ' · ' : ''}${esc(base(p.cwd))}</div>
             <span class="badge ${p.status}">${p.status}</span>
