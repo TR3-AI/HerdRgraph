@@ -1,147 +1,313 @@
 <!doctype html>
+<!--
+THESIS: an operations blueprint board — your herd drawn as a wired signal graph, not a card list. Refuses the dashboard-default grid of same-size boxes.
+OWN-WORLD: near-black blueprint paper #07090c, hairline #1a2029 panels, all-mono type, limen-red #f85149 section labels, status carried by traveling dots on live edges.
+STORY: open it, and in three seconds you know who is working (green radar + fast dot), who is idle, who is blocked, who is done, and who is next in line on the spine.
+FIRST VIEWPORT: header strip with LIVE counter; board panel left (desktop) or behind the drawer (phone); canvas with the selected tab's panes wired left→right on a spine.
+FORM: replacement world — operations blueprint (pinned by Bobby from limen + agenttrail hero references).
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HerdRgraph — the herd at a glance</title>
+<title>HerdRgraph — the herd, wired</title>
 <style>
   :root {
-    --bg: #0b0e14; --panel: #121724; --line: #1f2739; --text: #dbe2f0; --dim: #7b87a3;
-    --working: #22c55e; --idle: #eab308; --blocked: #ef4444; --done: #3b82f6; --unknown: #64748b;
+    --bg: #07090c; --panel: #0c0f14; --line: #1a2029; --line2: #232b38;
+    --ink: #d6dde8; --dim: #6b7688; --red: #f85149;
+    --working: #3fb950; --idle: #d29922; --blocked: #f85149; --done: #58a6ff; --unknown: #6b7688;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; margin: 0; }
-  body { background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, "SF Pro", system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-  header { padding: 10px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 12px; }
-  header h1 { font-size: 16px; letter-spacing: .04em; }
-  header h1 span { color: var(--working); }
-  header .sub { color: var(--dim); font-size: 12px; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 13px/1.5 var(--mono);
+    display: flex; flex-direction: column; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── header strip ─────────────────────────────── */
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px; height: 52px; flex-shrink: 0;
+    border-bottom: 1px solid var(--line); background: var(--panel);
+  }
+  .brand { font-size: 14px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .brand b { color: var(--red); font-weight: 700; }
+  .live { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--dim); letter-spacing: .1em; text-transform: uppercase; }
+  .live .pip { width: 7px; height: 7px; border-radius: 50%; background: var(--working); animation: blink 1.6s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  #counters { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--dim); letter-spacing: .06em; }
+  #counters b { color: var(--ink); font-weight: 600; }
+  #counters .cw b { color: var(--working); }
+  #counters .cb b { color: var(--blocked); }
+  #hamburger {
+    display: none; background: none; border: 1px solid var(--line2); border-radius: 6px;
+    color: var(--ink); width: 34px; height: 34px; font-size: 15px; cursor: pointer; flex-shrink: 0;
+  }
+
   #wrap { flex: 1; display: flex; min-height: 0; }
-  aside { width: 260px; border-right: 1px solid var(--line); overflow-y: auto; padding: 8px 0; flex-shrink: 0; }
-  main { flex: 1; overflow: auto; padding: 18px 22px; }
-  .ws { margin: 6px 0 2px; }
-  .ws-name { padding: 4px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); display: flex; gap: 6px; align-items: center; }
-  .tab { display: flex; align-items: center; gap: 8px; padding: 7px 14px 7px 22px; cursor: pointer; border-left: 2px solid transparent; }
-  .tab:hover { background: var(--panel); }
-  .tab.sel { background: var(--panel); border-left-color: var(--working); }
+
+  /* ── the board (workspaces → tabs) ────────────── */
+  aside {
+    width: 272px; flex-shrink: 0; overflow-y: auto;
+    border-right: 1px solid var(--line); background: var(--panel);
+    padding: 14px 0 24px;
+  }
+  .board-head { padding: 0 18px 10px; font-size: 10px; letter-spacing: .18em; color: var(--red); text-transform: uppercase; }
+  .ws-name { padding: 12px 18px 4px; font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; display: flex; align-items: center; gap: 7px; }
+  .tab {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 18px 8px 26px; cursor: pointer; background: none; border: none;
+    color: var(--ink); font: inherit; text-align: left;
+    border-left: 2px solid transparent;
+  }
+  .tab:hover { background: #10141b; }
+  .tab:focus-visible { outline: 1px solid var(--done); outline-offset: -1px; }
+  .tab.sel { background: #10141b; border-left-color: var(--red); }
   .tab .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tab .n { color: var(--dim); font-size: 11px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--unknown); }
-  .dot.working { background: var(--working); animation: pulse 1.1s ease-in-out infinite; }
-  .dot.idle { background: var(--idle); }
-  .dot.blocked { background: var(--blocked); }
-  .dot.done { background: var(--done); }
-  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 50% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } }
-  #summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
-  #summary h2 { font-size: 18px; margin-right: 10px; }
-  .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel); display: flex; gap: 6px; align-items: center; }
-  #flow { display: flex; flex-wrap: wrap; gap: 0; align-items: stretch; }
-  .hop { display: flex; align-items: center; }
-  .arrow { color: var(--dim); padding: 0 10px; font-size: 18px; user-select: none; }
-  .card { width: 230px; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--unknown); border-radius: 10px; padding: 10px 12px; cursor: pointer; position: relative; transition: border-color .2s, transform .2s; }
-  .card:hover { transform: translateY(-2px); }
-  .card.working { border-top-color: var(--working); animation: cardpulse 1.4s ease-in-out infinite; }
-  .card.idle { border-top-color: var(--idle); }
-  .card.blocked { border-top-color: var(--blocked); }
-  .card.done { border-top-color: var(--done); }
-  .card.focused { outline: 1px solid var(--working); }
-  @keyframes cardpulse { 0%,100% { box-shadow: 0 0 0 0 rgba(34,197,94,.28); } 50% { box-shadow: 0 0 14px 2px rgba(34,197,94,.28); } }
-  .card .step { position: absolute; top: -11px; left: -8px; width: 22px; height: 22px; border-radius: 50%; background: var(--line); color: var(--text); font-size: 11px; display: grid; place-items: center; border: 1px solid var(--bg); }
-  .card .pname { font-weight: 600; font-size: 13px; margin: 2px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .card .meta { color: var(--dim); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; padding: 2px 8px; border-radius: 999px; margin-top: 7px; display: inline-block; }
-  .badge.working { background: rgba(34,197,94,.15); color: var(--working); }
-  .badge.idle { background: rgba(234,179,8,.15); color: var(--idle); }
-  .badge.blocked { background: rgba(239,68,68,.15); color: var(--blocked); }
-  .badge.done { background: rgba(59,130,246,.15); color: var(--done); }
-  .badge.unknown { background: rgba(100,116,139,.18); color: var(--unknown); }
-  #empty { color: var(--dim); margin-top: 40px; text-align: center; }
-  #err { color: var(--blocked); padding: 20px; }
-  /* phone: tab list becomes a top strip, cards take the full width below */
-  @media (max-width: 700px) {
-    #wrap { flex-direction: column; }
-    aside { width: auto; max-height: 38vh; border-right: none; border-bottom: 1px solid var(--line); }
-    main { padding: 14px; }
-    .card { width: 100%; }
-    .hop { width: 100%; }
-    .arrow { transform: rotate(90deg); padding: 2px 0; margin: 0 auto; }
-    .hop:has(.arrow) { justify-content: center; }
-    header .sub { display: none; }
+  .tick { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--unknown); }
+  .tick.working { background: var(--working); box-shadow: 0 0 8px var(--working); animation: blink 1.2s steps(2, jump-none) infinite; }
+  .tick.idle { background: var(--idle); }
+  .tick.blocked { background: var(--blocked); box-shadow: 0 0 8px var(--blocked); }
+  .tick.done { background: var(--done); }
+
+  /* ── canvas ───────────────────────────────────── */
+  main { flex: 1; overflow: auto; position: relative; }
+  #canvas {
+    position: relative; min-height: 100%; padding: 26px 34px 60px;
+    background-image: radial-gradient(circle, #141a23 1px, transparent 1px);
+    background-size: 26px 26px;
+  }
+  #stage { position: relative; z-index: 1; }
+  #edges { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+
+  #tabhead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 34px; }
+  #tabhead h2 { font-size: 17px; font-weight: 700; letter-spacing: .01em; }
+  #tabhead h2::before { content: "▸ "; color: var(--red); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--dim); letter-spacing: .05em; }
+  .chip i { width: 7px; height: 7px; border-radius: 50%; font-style: normal; }
+
+  #flow { display: flex; align-items: flex-start; gap: 64px; flex-wrap: nowrap; }
+  .node { position: relative; width: 240px; flex-shrink: 0; }
+  .node .pin {
+    width: 13px; height: 13px; border-radius: 50%; margin: 0 auto 14px;
+    background: var(--bg); border: 2px solid var(--unknown); position: relative; z-index: 2;
+  }
+  .node.working .pin { border-color: var(--working); background: var(--working); box-shadow: 0 0 10px var(--working); }
+  .node.idle .pin { border-color: var(--idle); }
+  .node.blocked .pin { border-color: var(--blocked); background: var(--blocked); box-shadow: 0 0 10px var(--blocked); }
+  .node.done .pin { border-color: var(--done); }
+  .node.working .pin::before, .node.working .pin::after {
+    content: ""; position: absolute; inset: -3px; border-radius: 50%;
+    border: 1px solid var(--working); animation: radar 2s ease-out infinite;
+  }
+  .node.working .pin::after { animation-delay: 1s; }
+  @keyframes radar { from { transform: scale(1); opacity: .8; } to { transform: scale(3.2); opacity: 0; } }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; cursor: pointer; position: relative;
+    transition: border-color .25s, box-shadow .25s, transform .25s;
+  }
+  .card:hover { border-color: var(--line2); transform: translateY(-2px); }
+  .card:focus-visible { outline: 1px solid var(--done); outline-offset: 2px; }
+  .node.working .card { border-color: rgba(63,185,80,.45); box-shadow: 0 0 22px rgba(63,185,80,.12); }
+  .node.blocked .card { border-color: rgba(248,81,73,.45); box-shadow: 0 0 22px rgba(248,81,73,.10); }
+  .card .step { position: absolute; top: -9px; left: 12px; padding: 0 6px; background: var(--bg); font-size: 10px; color: var(--dim); letter-spacing: .1em; }
+  .card .pname { font-weight: 700; font-size: 13px; margin-bottom: 4px; overflow-wrap: anywhere; }
+  .card .meta { color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { display: inline-block; margin-top: 9px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 9px; border-radius: 4px; border: 1px solid; }
+  .badge.working { color: var(--working); border-color: rgba(63,185,80,.5); animation: blink 1.2s steps(2, jump-none) infinite; }
+  .badge.idle { color: var(--idle); border-color: rgba(210,153,34,.5); }
+  .badge.blocked { color: var(--blocked); border-color: rgba(248,81,73,.5); }
+  .badge.done { color: var(--done); border-color: rgba(88,166,255,.5); }
+  .badge.unknown { color: var(--unknown); border-color: var(--line2); }
+
+  /* status changed since last poll — the board flashes */
+  .card.changed { animation: changed 1.4s ease-out; }
+  @keyframes changed {
+    0% { box-shadow: 0 0 0 2px var(--done), 0 0 30px rgba(88,166,255,.5); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+
+  #empty, #offline { color: var(--dim); text-align: center; margin-top: 15vh; font-size: 13px; line-height: 2; }
+  #offline b, #empty b { color: var(--red); }
+
+  /* edge styling (SVG) */
+  .edge { fill: none; stroke: var(--line2); stroke-width: 1.5; }
+  .edge.working { stroke: rgba(63,185,80,.55); }
+  .edge.idle { stroke: rgba(210,153,34,.35); }
+  .edge.blocked { stroke: rgba(248,81,73,.6); stroke-dasharray: 5 5; animation: march 1s linear infinite; }
+  .edge.done { stroke: rgba(88,166,255,.25); }
+  @keyframes march { to { stroke-dashoffset: -10; } }
+  .edge.hot { stroke-width: 2.5; }
+
+  /* ── mobile: drawer + vertical spine ──────────── */
+  #scrim { display: none; }
+  @media (max-width: 760px) {
+    #hamburger { display: block; }
+    #counters { display: none; }
+    aside {
+      position: fixed; inset: 0 auto 0 0; z-index: 30; width: min(300px, 84vw);
+      transform: translateX(-102%); transition: transform .28s cubic-bezier(.2,.9,.25,1);
+      border-right: 1px solid var(--line2); box-shadow: 0 0 60px rgba(0,0,0,.6);
+    }
+    aside.open { transform: translateX(0); }
+    #scrim.show { display: block; position: fixed; inset: 0; z-index: 20; background: rgba(4,6,9,.65); }
+    #canvas { padding: 20px 16px 60px 46px; }
+    #flow { flex-direction: column; gap: 56px; }
+    .node { width: 100%; }
+    .node .pin { position: absolute; left: -30px; top: 18px; margin: 0; }
   }
 </style>
 </head>
 <body>
 <header>
-  <h1>🤠 <span>herdrgraph</span></h1>
-  <div class="sub" id="sub">watching the herd…</div>
+  <button id="hamburger" aria-label="Open the board">☰</button>
+  <div class="brand">Herd<b>R</b>graph</div>
+  <div class="live"><span class="pip"></span><span id="liveword">live</span></div>
+  <div id="counters"></div>
 </header>
 <div id="wrap">
-  <aside id="side"></aside>
-  <main id="main"><div id="empty">pick a tab on the left</div></main>
+  <div id="scrim"></div>
+  <aside id="board" aria-label="Workspaces and tabs"></aside>
+  <main><div id="canvas">
+    <svg id="edges" aria-hidden="true"></svg>
+    <div id="stage"><div id="empty">select a tab on the board</div></div>
+  </div></main>
 </div>
+
 <script>
 let state = null;
 let selected = localStorage.getItem('herdrgraph.tab') || null;
-// same-origin when the daemon serves the page; on GitHub Pages the live
-// endpoint comes from config.json ({ "api": "https://…trycloudflare.com" }).
+let prevStatus = {};   // pane id -> status last render (drives the change-flash)
 let API = '';
 const LOCAL = /^(127\.0\.0\.1|localhost)/.test(location.hostname);
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const base = (p) => (p || '').split('/').filter(Boolean).pop() || '';
 
-function render() {
-  if (!state) return;
-  if (!state.ok) { document.getElementById('sub').textContent = state.error || 'herdr unavailable'; return; }
-  const total = state.workspaces.reduce((n, w) => n + w.tabs.reduce((m, t) => m + t.panes.length, 0), 0);
-  document.getElementById('sub').textContent =
-    `${state.workspaces.length} workspaces · ${state.workspaces.reduce((n, w) => n + w.tabs.length, 0)} tabs · ${total} panes · live`;
+/* ── drawer ── */
+const board = document.getElementById('board'), scrim = document.getElementById('scrim');
+const setDrawer = (open) => { board.classList.toggle('open', open); scrim.classList.toggle('show', open); };
+document.getElementById('hamburger').addEventListener('click', () => setDrawer(true));
+scrim.addEventListener('click', () => setDrawer(false));
+addEventListener('keydown', (e) => { if (e.key === 'Escape') setDrawer(false); });
 
-  const side = document.getElementById('side');
-  side.innerHTML = state.workspaces.map((w) => `
-    <div class="ws">
-      <div class="ws-name"><span class="dot ${w.status}"></span>${esc(w.label)}</div>
-      ${w.tabs.map((t) => `
-        <div class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
-          <span class="dot ${t.status}"></span>
-          <span class="name">${esc(t.label)}</span>
-          <span class="n">${t.panes.length}</span>
-        </div>`).join('')}
-    </div>`).join('');
-  side.querySelectorAll('.tab').forEach((el) => el.addEventListener('click', () => {
+/* ── render ── */
+function render() {
+  if (!state || !state.ok) return;
+  const ws = state.workspaces;
+  const all = ws.flatMap((w) => w.tabs);
+  const counts = { working: 0, blocked: 0, idle: 0, done: 0, unknown: 0 };
+  for (const t of all) for (const p of t.panes) counts[p.status] = (counts[p.status] || 0) + 1;
+  document.getElementById('counters').innerHTML =
+    `<span class="cw"><b>${counts.working}</b> working</span>` +
+    `<span class="cb"><b>${counts.blocked}</b> blocked</span>` +
+    `<span><b>${all.reduce((n, t) => n + t.panes.length, 0)}</b> panes</span>`;
+
+  board.innerHTML = '<div class="board-head">The Board</div>' + ws.map((w) => `
+    <div class="ws-name">${esc(w.label)}</div>
+    ${w.tabs.map((t) => `
+      <button class="tab ${t.id === selected ? 'sel' : ''}" data-tab="${t.id}">
+        <span class="tick ${t.status}"></span>
+        <span class="name">${esc(t.label)}</span>
+        <span class="n">${t.panes.length}</span>
+      </button>`).join('')}`).join('');
+  board.querySelectorAll('.tab').forEach((el) => el.addEventListener('click', () => {
     selected = el.dataset.tab;
     localStorage.setItem('herdrgraph.tab', selected);
     fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: selected }) }).catch(() => {});
+    setDrawer(false);
     render();
+    // a monitoring board should land on the live thing
+    requestAnimationFrame(() => document.querySelector('.node.working')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }));
   }));
 
-  const main = document.getElementById('main');
-  const tab = state.workspaces.flatMap((w) => w.tabs).find((t) => t.id === selected);
-  if (!tab) { main.innerHTML = '<div id="empty">pick a tab on the left</div>'; return; }
+  const stage = document.getElementById('stage');
+  const tab = all.find((t) => t.id === selected);
+  if (!tab) { stage.innerHTML = '<div id="empty">select a tab on the board</div>'; drawEdges(); return; }
 
-  const counts = {};
-  for (const p of tab.panes) counts[p.status] = (counts[p.status] || 0) + 1;
   const order = ['working', 'blocked', 'idle', 'done', 'unknown'];
-  main.innerHTML = `
-    <div id="summary">
+  const tc = {};
+  for (const p of tab.panes) tc[p.status] = (tc[p.status] || 0) + 1;
+  stage.innerHTML = `
+    <div id="tabhead">
       <h2>${esc(tab.label)}</h2>
-      ${order.filter((s) => counts[s]).map((s) =>
-        `<span class="chip"><span class="dot ${s}"></span>${counts[s]} ${s}</span>`).join('')}
+      ${order.filter((s) => tc[s]).map((s) =>
+        `<span class="chip"><i style="background:var(--${s})"></i>${tc[s]} ${s}</span>`).join('')}
     </div>
     <div id="flow">
-      ${tab.panes.map((p, i) => `
-        ${i ? '<div class="hop"><div class="arrow">→</div></div>' : ''}
-        <div class="hop"><div class="card ${p.status} ${p.focused ? 'focused' : ''}" data-tab="${tab.id}">
-          <div class="step">${i + 1}</div>
-          <div class="pname">${esc(p.label)}</div>
-          <div class="meta">${p.agent ? esc(p.agent) + ' · ' : ''}${esc(base(p.cwd))}</div>
-          <span class="badge ${p.status}">${p.status}</span>
-        </div></div>`).join('')}
+      ${tab.panes.map((p, i) => {
+        const changed = prevStatus[p.id] && prevStatus[p.id] !== p.status;
+        return `
+        <div class="node ${p.status}" data-pane="${p.id}">
+          <div class="pin"></div>
+          <div class="card ${changed ? 'changed' : ''}" role="button" tabindex="0" data-tab="${tab.id}">
+            <div class="step">STEP ${String(i + 1).padStart(2, '0')}</div>
+            <div class="pname">${esc(p.label)}</div>
+            <div class="meta">${p.agent ? esc(p.agent) + ' · ' : ''}${esc(base(p.cwd))}</div>
+            <span class="badge ${p.status}">${p.status}</span>
+          </div>
+        </div>`;
+      }).join('')}
     </div>`;
-  main.querySelectorAll('.card').forEach((el) => el.addEventListener('click', () => {
-    fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: el.dataset.tab }) }).catch(() => {});
-  }));
+  stage.querySelectorAll('.card').forEach((el) => {
+    const go = () => fetch(API + '/api/focus', { method: 'POST', body: JSON.stringify({ tab: el.dataset.tab }) }).catch(() => {});
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
+  for (const p of tab.panes) prevStatus[p.id] = p.status;
+  requestAnimationFrame(drawEdges);
 }
 
+/* ── edges: wire consecutive nodes, dots travel by status ── */
+function drawEdges() {
+  const svg = document.getElementById('edges');
+  const canvas = document.getElementById('canvas');
+  const nodes = [...document.querySelectorAll('.node')];
+  svg.innerHTML = '';
+  if (nodes.length < 2) return;
+  const W = canvas.scrollWidth, H = canvas.scrollHeight;
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const vertical = matchMedia('(max-width: 760px)').matches;
+  const cr = canvas.getBoundingClientRect();
+  const pt = (el) => {
+    const r = el.querySelector('.pin').getBoundingClientRect();
+    return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
+  };
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const a = pt(nodes[i]), b = pt(nodes[i + 1]);
+    const status = nodes[i].className.replace('node ', '').trim();
+    const d = vertical
+      ? `M ${a.x} ${a.y} C ${a.x - 14} ${(a.y + b.y) / 2}, ${b.x - 14} ${(a.y + b.y) / 2}, ${b.x} ${b.y}`
+      : `M ${a.x} ${a.y} C ${(a.x + b.x) / 2} ${a.y - 12}, ${(a.x + b.x) / 2} ${b.y - 12}, ${b.x} ${b.y}`;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', `edge ${status}`);
+    svg.appendChild(path);
+    if (status === 'working' || status === 'idle') {
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('r', status === 'working' ? 3.5 : 2.5);
+      dot.setAttribute('fill', status === 'working' ? '#3fb950' : '#d29922');
+      if (status === 'working') dot.setAttribute('filter', 'drop-shadow(0 0 4px #3fb950)');
+      const motion = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+      motion.setAttribute('dur', status === 'working' ? '1.6s' : '5s');
+      motion.setAttribute('repeatCount', 'indefinite');
+      motion.setAttribute('path', d);
+      dot.appendChild(motion);
+      svg.appendChild(dot);
+    }
+  }
+}
+addEventListener('resize', () => requestAnimationFrame(drawEdges));
+
+/* ── connect ── */
 async function connect() {
   if (!LOCAL) {
     try {
@@ -149,13 +315,15 @@ async function connect() {
       API = cfg.api || '';
     } catch { API = ''; }
     if (!API) {
-      document.getElementById('sub').textContent = 'daemon offline — start herdrgraph on the Mac';
+      document.getElementById('liveword').textContent = 'offline';
+      document.getElementById('stage').innerHTML =
+        '<div id="offline"><b>daemon offline</b><br>start herdrgraph on the Mac, then reload</div>';
       return;
     }
   }
   const es = new EventSource(API + '/events');
   es.onmessage = (e) => { state = JSON.parse(e.data); render(); };
-  es.onerror = () => { document.getElementById('sub').textContent = 'connection lost — retrying…'; };
+  es.onerror = () => { document.getElementById('liveword').textContent = 'reconnecting'; };
 }
 connect();
 render();
